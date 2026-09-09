@@ -1,12 +1,16 @@
 FROM python:3.12-slim
 
 COPY --from=ghcr.io/astral-sh/uv:0.12.12 /uv /uvx /bin/
-COPY src/ /app/src/
+WORKDIR /app
+
 COPY pyproject.toml /app/
 COPY uv.lock /app/
-
-WORKDIR /app
+COPY src/ /app/src/
 
 RUN uv sync --locked
 
-CMD ["uv", "run", "python", "src/main.py"]
+ENV PYTHONPATH=/app/src
+
+WORKDIR /app/src
+
+CMD ["uv", "run", "main.py"]
