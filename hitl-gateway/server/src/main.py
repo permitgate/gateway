@@ -18,7 +18,7 @@ from config import AppConfig, get_app_config
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[logging.StreamHandler(), logging.FileHandler(f"server.log")],
+    handlers=[logging.StreamHandler()],
 )
 logger = logging.getLogger(__name__)
 
