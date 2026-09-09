@@ -69,5 +69,6 @@ if __name__ == "__main__":
         asyncio.run(start())
     except KeyboardInterrupt:
         logger.info("\nServer Stopped by User.")
-    except Exception as e:
-        logger.info(f"An error occurred: {e}")
+    except Exception:
+        logger.exception("An error occurred")
+        raise
