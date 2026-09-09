@@ -7,7 +7,6 @@ COPY uv.lock /app
 
 WORKDIR /app
 
-RUN ls -al
 RUN uv sync --locked
 
 CMD ["uv", "run", "main.py"]
