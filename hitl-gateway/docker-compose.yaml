@@ -1,0 +1,10 @@
+services:
+  postgres:
+    image: postgres:latest
+    container_name: postgres
+    environment:
+      POSTGRES_DB: hitl-gateway
+      POSTGRES_USER: hitl-gateway
+      POSTGRES_PASSWORD: hitl-gateway
+    ports:
+      - "5432:5432"
