@@ -10,7 +10,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class AppConfig(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
-    host: str = Field(default="localhost", alias="HITL_GATEWAY_HOST")
+    host: str = Field(default="0.0.0.0", alias="HITL_GATEWAY_HOST")
     port: int = Field(default=8080, alias="HITL_GATEWAY_PORT")
 
 
