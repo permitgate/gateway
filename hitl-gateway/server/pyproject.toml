@@ -1,0 +1,38 @@
+[project]
+name = "hitl-gateway"
+version = "0.1.0"
+description = "Human-In-The-Loop gateway"
+authors = [
+    { name = "warrkan", email = "evgeny.romanov@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.141.1",
+    "fastapi-healthchecks>=1.1.0",
+    "hypercorn>=0.18.0",
+    "pydantic>=2.13.5",
+    "pydantic-settings>=2.15.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "validate-python-headers",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages=["src"]
+
+[tool.uv.sources]
+validate-python-headers = { git = "https://github.com/frgfm/validate-python-headers.git", rev = "523b1c2fdd7857374999d664aeea9f8809cd497c" }
+
+[tool.validate-python-headers]
+owner = "Evgenii Romanov"
+starting-year = 2026
+license = "AGPL-3.0-only"
+paths = ["src", "tests"]
+ignore-files = []
+ignore-folders = []
