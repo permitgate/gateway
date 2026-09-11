@@ -86,34 +86,6 @@ wheels = [
 ]
 
 [[package]]
-name = "hitl-gateway"
-version = "0.1.0"
-source = { editable = "." }
-dependencies = [
-    { name = "fastapi" },
-    { name = "fastapi-healthchecks" },
-    { name = "hypercorn" },
-    { name = "pydantic" },
-    { name = "pydantic-settings" },
-]
-
-[package.optional-dependencies]
-dev = [
-    { name = "validate-python-headers" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "fastapi", specifier = ">=0.141.1" },
-    { name = "fastapi-healthchecks", specifier = ">=1.1.0" },
-    { name = "hypercorn", specifier = ">=0.18.0" },
-    { name = "pydantic", specifier = ">=2.13.5" },
-    { name = "pydantic-settings", specifier = ">=2.15.0" },
-    { name = "validate-python-headers", marker = "extra == 'dev'", git = "https://github.com/frgfm/validate-python-headers.git?rev=523b1c2fdd7857374999d664aeea9f8809cd497c" },
-]
-provides-extras = ["dev"]
-
-[[package]]
 name = "hpack"
 version = "4.2.0"
 source = { registry = "https://pypi.org/simple" }
@@ -154,6 +126,34 @@ sdist = { url = "https://files.pythonhosted.org/packages/5f/f7/abb373e5757eaec4b
 wheels = [
     { url = "https://files.pythonhosted.org/packages/57/b0/0e52c878c53f245edd3a11020f20979b3f490f245af532c7cae3027754b5/idna-3.19-py3-none-any.whl", hash = "sha256:815e7be7a7806d54abb586dc943addc79e8b2ee16915059658cbeff4b1b43bf4", size = 68550, upload-time = "2026-08-18T05:14:22.343Z" },
 ]
+
+[[package]]
+name = "permitgate-gateway"
+version = "0.1.0"
+source = { editable = "." }
+dependencies = [
+    { name = "fastapi" },
+    { name = "fastapi-healthchecks" },
+    { name = "hypercorn" },
+    { name = "pydantic" },
+    { name = "pydantic-settings" },
+]
+
+[package.optional-dependencies]
+dev = [
+    { name = "validate-python-headers" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "fastapi", specifier = ">=0.141.1" },
+    { name = "fastapi-healthchecks", specifier = ">=1.1.0" },
+    { name = "hypercorn", specifier = ">=0.18.0" },
+    { name = "pydantic", specifier = ">=2.13.5" },
+    { name = "pydantic-settings", specifier = ">=2.15.0" },
+    { name = "validate-python-headers", marker = "extra == 'dev'", git = "https://github.com/frgfm/validate-python-headers.git?rev=523b1c2fdd7857374999d664aeea9f8809cd497c" },
+]
+provides-extras = ["dev"]
 
 [[package]]
 name = "priority"

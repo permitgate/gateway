@@ -3,9 +3,9 @@ FROM python:3.12-slim
 COPY --from=ghcr.io/astral-sh/uv:0.12.12 /uv /uvx /bin/
 WORKDIR /app
 
-COPY pyproject.toml /app/
-COPY uv.lock /app/
-COPY src/ /app/src/
+COPY server/pyproject.toml /app/
+COPY server/uv.lock /app/
+COPY server/src /app/src/
 
 RUN uv sync --locked
 
