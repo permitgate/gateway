@@ -12,11 +12,17 @@ dependencies = [
     "hypercorn>=0.18.0",
     "pydantic>=2.13.5",
     "pydantic-settings>=2.15.0",
+    "sqlalchemy>=2.0.0",
+    "psycopg[binary]>=3.0.0",
+    "alembic>=1.13.0",
 ]
 
 [project.optional-dependencies]
 dev = [
     "validate-python-headers",
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
+    "httpx>=0.24.0",
 ]
 
 [build-system]
