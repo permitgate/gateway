@@ -100,11 +100,20 @@ def upgrade() -> None:
     )
 
     op.create_foreign_key(
-        None, "approval_flows", "flow_versions", ["active_version_id"], ["id"]
+        "fk_approval_flows_active_version_id",
+        "approval_flows",
+        "flow_versions",
+        ["active_version_id"],
+        ["id"],
     )
 
 
 def downgrade() -> None:
+    op.drop_constraint(
+        "fk_approval_flows_active_version_id",
+        "approval_flows",
+        type_="foreignkey",
+    )
     op.drop_table("flow_versions")
     op.drop_table("approval_flows")
     op.drop_table("tenants")
