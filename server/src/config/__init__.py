@@ -5,6 +5,7 @@
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from sqlalchemy.engine import URL
 
 
 class AppConfig(BaseSettings):
@@ -27,7 +28,16 @@ class DatabaseConfig(BaseSettings):
 
     @property
     def url(self) -> str:
-        return f"postgresql+psycopg://{self.user}:{self.password}@{self.host}:{self.port}/{self.database}"
+        return str(
+            URL.create(
+                drivername="postgresql+psycopg",
+                username=self.user,
+                password=self.password,
+                host=self.host,
+                port=self.port,
+                database=self.database,
+            )
+        )
 
 
 def get_app_config() -> AppConfig:
