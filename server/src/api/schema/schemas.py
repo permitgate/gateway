@@ -32,7 +32,7 @@ class ApprovalFlowResponse(BaseModel):
 
     id: uuid.UUID
     name: str
-    active_version_id: uuid.UUID
+    active_version_id: uuid.UUID | None
     created_at: datetime
 
 
