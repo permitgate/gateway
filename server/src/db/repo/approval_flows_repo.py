@@ -63,6 +63,29 @@ class ApprovalFlowsRepository:
         )
         return result.scalar_one_or_none()
 
+    async def get_flow_by_id_for_update(
+        self, session: AsyncSession, tenant_id: uuid.UUID, flow_id: uuid.UUID
+    ) -> ApprovalFlow | None:
+        """Get an approval flow with row-level lock for a specific tenant.
+
+        Acquires a FOR UPDATE lock to prevent concurrent modifications. Use this
+        when computing version numbers or other operations that depend on current state.
+
+        Args:
+            session: Database session
+            tenant_id: ID of the tenant
+            flow_id: ID of the approval flow
+
+        Returns:
+            ApprovalFlow object or None if not found
+        """
+        result = await session.execute(
+            select(ApprovalFlow)
+            .where((ApprovalFlow.id == flow_id) & (ApprovalFlow.tenant_id == tenant_id))
+            .with_for_update()
+        )
+        return result.scalar_one_or_none()
+
     async def list_flows(
         self, session: AsyncSession, tenant_id: uuid.UUID
     ) -> list[ApprovalFlow]:

@@ -89,6 +89,8 @@ class ApprovalFlowsService:
     ) -> ApprovalFlow:
         """Create new approval flow version and commit the transaction.
 
+        Acquires a row-level lock on the flow to prevent concurrent version number collisions.
+
         Args:
             session: Database session
             tenant_id: ID of the tenant
@@ -102,7 +104,7 @@ class ApprovalFlowsService:
         Returns:
             The created ApprovalFlow object
         """
-        flow = await self._repo.get_flow_by_id(session, tenant_id, flow_id)
+        flow = await self._repo.get_flow_by_id_for_update(session, tenant_id, flow_id)
         if not flow:
             raise ApprovalFlowNotFoundError(flow_id)
         if not flow.active_version_id:
