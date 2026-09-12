@@ -17,9 +17,9 @@ class ApprovalFlowNotFoundError(Exception):
 class NoActiveVersionError(Exception):
     """Raised when a flow doesn't have active version defined."""
 
-    def __init__(self, version_id: uuid.UUID):
-        self.version_id = version_id
-        super().__init__(f"Flow with ID {version_id} doesn't have active version")
+    def __init__(self, flow_id: uuid.UUID):
+        self.flow_id = flow_id
+        super().__init__(f"Flow with ID {flow_id} doesn't have active version")
 
 
 class FlowVersionNotFoundError(Exception):
