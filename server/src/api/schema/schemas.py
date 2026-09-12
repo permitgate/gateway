@@ -6,7 +6,7 @@
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ApprovalFlowUpdate(BaseModel):
@@ -15,7 +15,7 @@ class ApprovalFlowUpdate(BaseModel):
     json_schema: dict
     preview_schema: dict
     schema_validation_enabled: bool
-    sla_seconds: int
+    sla_seconds: int = Field(gt=0)
     reset_on_edit: bool
 
 
