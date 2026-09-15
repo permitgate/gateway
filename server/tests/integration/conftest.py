@@ -59,16 +59,14 @@ def docker_container():
 
         max_attempts = 30
         for attempt in range(max_attempts):
-            try:
-                container.reload()
-                health_status = (
-                    container.attrs.get("State", {}).get("Health", {}).get("Status")
-                )
-                if health_status == "healthy":
-                    break
-                time.sleep(0.5)
-            except Exception:
-                time.sleep(0.5)
+            result = container.exec_run(
+                ["pg_isready", "-U", POSTGRES_USER, "-d", POSTGRES_DB]
+            )
+            if result.exit_code == 0:
+                break
+            time.sleep(0.5)
+        else:
+            raise RuntimeError("PostgreSQL container did not become ready")
 
         yield container
 
