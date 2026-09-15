@@ -138,13 +138,11 @@ async def cleanup_database(test_session):
 
     # Delete all data to ensure clean state for next test
     try:
+        await test_session.execute(
+            text("UPDATE approval_flows SET active_version_id = NULL")
+        )
         await test_session.execute(text("DELETE FROM flow_versions"))
         await test_session.execute(text("DELETE FROM approval_flows"))
-        await test_session.execute(
-            text(
-                "DELETE FROM tenants WHERE id != '00000000-0000-0000-0000-000000000000'"
-            )
-        )
         await test_session.commit()
     except Exception:
         await test_session.rollback()
