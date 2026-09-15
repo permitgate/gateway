@@ -7,9 +7,9 @@ import uuid
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from db.models import ApprovalFlow, FlowVersion
 from db.repo.approval_flows_repo import ApprovalFlowsRepository
 from db.repo.flow_versions_repo import FlowVersionsRepository
+from model import ApprovalFlow, ApprovalFlowVersion
 from service.exceptions import (
     ApprovalFlowNotFoundError,
     FlowVersionNotFoundError,
@@ -74,7 +74,7 @@ class ApprovalFlowsService:
             active_version_id=flow_version.id,
         )
         await session.commit()
-        return flow
+        return ApprovalFlow.model_validate(flow, from_attributes=True)
 
     async def update_flow(
         self,
@@ -135,7 +135,7 @@ class ApprovalFlowsService:
             active_version_id=new_flow_version.id,
         )
         await session.commit()
-        return flow
+        return ApprovalFlow.model_validate(flow, from_attributes=True)
 
     async def list_flows(
         self, session: AsyncSession, tenant_id: uuid.UUID
@@ -149,7 +149,10 @@ class ApprovalFlowsService:
         Returns:
             List of ApprovalFlow objects for the tenant
         """
-        return await self._repo.list_flows(session, tenant_id)
+        return [
+            ApprovalFlow.model_validate(flow, from_attributes=True)
+            for flow in await self._repo.list_flows(session, tenant_id)
+        ]
 
     async def get_flow(
         self, session: AsyncSession, tenant_id: uuid.UUID, flow_id: uuid.UUID
@@ -170,11 +173,11 @@ class ApprovalFlowsService:
         flow = await self._repo.get_flow_by_id(session, tenant_id, flow_id)
         if not flow:
             raise ApprovalFlowNotFoundError(flow_id)
-        return flow
+        return ApprovalFlow.model_validate(flow, from_attributes=True)
 
     async def list_flow_versions(
         self, session: AsyncSession, tenant_id: uuid.UUID, flow_id: uuid.UUID
-    ) -> list[FlowVersion]:
+    ) -> list[ApprovalFlowVersion]:
         """List all versions of an approval flow for a tenant.
 
         Args:
@@ -185,13 +188,16 @@ class ApprovalFlowsService:
         Returns:
             List of FlowVersion objects ordered by version number
         """
-        return await self._version_repo.list_versions_by_flow_id(
-            session, tenant_id, flow_id
-        )
+        return [
+            ApprovalFlowVersion.model_validate(version, from_attributes=True)
+            for version in await self._version_repo.list_versions_by_flow_id(
+                session, tenant_id, flow_id
+            )
+        ]
 
     async def get_flow_version(
         self, session: AsyncSession, tenant_id: uuid.UUID, version_id: uuid.UUID
-    ) -> FlowVersion:
+    ) -> ApprovalFlowVersion:
         """Get a specific flow version by its ID for a tenant.
 
         Args:
@@ -210,4 +216,4 @@ class ApprovalFlowsService:
         )
         if not version:
             raise FlowVersionNotFoundError(version_id)
-        return version
+        return ApprovalFlowVersion.model_validate(version, from_attributes=True)
