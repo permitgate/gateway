@@ -16,6 +16,7 @@ from collections.abc import Sequence
 
 import sqlalchemy as sa
 from alembic import op
+from sqlalchemy.dialects.postgresql import JSONB
 
 revision: str = "001"
 down_revision: str | None = None
@@ -67,10 +68,10 @@ def upgrade() -> None:
         sa.Column("tenant_id", sa.UUID(), nullable=False),
         sa.Column("flow_id", sa.UUID(), nullable=False),
         sa.Column("version", sa.Integer(), nullable=False),
-        sa.Column("json_schema", sa.JSON(), nullable=False),
+        sa.Column("json_schema", JSONB(), nullable=False),
         sa.Column(
             "preview_schema",
-            sa.JSON(),
+            JSONB(),
             nullable=False,
             server_default=sa.text("'{\"fields\":[]}'::jsonb"),
         ),
