@@ -120,7 +120,7 @@ For faster iteration during development, consider running the gateway directly o
 ```bash
 # In the server directory
 cd server
-uv run main.py
+uv run src/main.py
 ```
 
 This requires only PostgreSQL to run in Docker:
