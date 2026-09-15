@@ -37,9 +37,8 @@ def run_migrations(db_config: DatabaseConfig) -> None:
 
     logger.info("Running database migrations")
 
-    alembic_config = Config(str(alembic_ini))
     alembic_config.set_main_option(
-        "sqlalchemy.url", db_config.url.replace("+psycopg", "")
+        "sqlalchemy.url", db_config.url.replace("%", "%%").replace("+psycopg", "")
     )
     alembic_config.set_main_option("script_location", str(alembic_dir))
 
