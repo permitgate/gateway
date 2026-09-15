@@ -6,7 +6,16 @@
 from fastapi import FastAPI
 from fastapi_healthchecks.api.router import HealthcheckRouter, Probe
 
-app = FastAPI()
+from api.approval_flows import router as approval_flows_router
+
+app = FastAPI(
+    title="PermitGate Gateway API",
+    description="API for managing approval flows and workflow automation",
+    version="1.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json",
+)
 app.include_router(
     HealthcheckRouter(
         Probe(
@@ -24,3 +33,4 @@ app.include_router(
     ),
     prefix="/health",
 )
+app.include_router(approval_flows_router)

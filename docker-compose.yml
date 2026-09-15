@@ -1,0 +1,54 @@
+#version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: permitgate-postgres
+    environment:
+      POSTGRES_USER: gateway
+      POSTGRES_PASSWORD: gateway
+      POSTGRES_DB: gateway
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gateway -d gateway"]
+      interval: 5s
+      timeout: 10s
+      retries: 10
+      start_period: 10s
+    networks:
+      - permitgate-network
+
+  gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: permitgate-gateway
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: gateway
+      DB_PASSWORD: gateway
+      DB_NAME: gateway
+      DB_RUN_MIGRATIONS: "true"
+      DB_CREATE_DUMMY_DATA: "true"
+      GATEWAY_HOST: 0.0.0.0
+      GATEWAY_PORT: 8080
+    ports:
+      - "8080:8080"
+    networks:
+      - permitgate-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+
+networks:
+  permitgate-network:
+    driver: bridge

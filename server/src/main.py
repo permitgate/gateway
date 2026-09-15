@@ -6,13 +6,13 @@
 import asyncio
 import logging
 import signal
-from typing import Optional
 
 from hypercorn import Config
 from hypercorn.asyncio import serve
 
 from app import app
 from config import AppConfig, get_app_config
+from db import close_db, init_db
 
 # Configure logging
 logging.basicConfig(
@@ -28,13 +28,11 @@ shutdown_event = asyncio.Event()
 config: AppConfig = get_app_config()
 
 
-async def shutdown(sig: Optional[signal.Signals] = None) -> None:
+async def shutdown(sig: signal.Signals | None = None) -> None:
     """Initiate graceful shutdown"""
     if not shutdown_event.is_set():
         if sig:
-            logger.info(
-                f"Received signal {sig.name}, initiating graceful shutdown..."
-            )
+            logger.info(f"Received signal {sig.name}, initiating graceful shutdown...")
         else:
             logger.info("Initiating graceful shutdown...")
         shutdown_event.set()
@@ -48,23 +46,24 @@ async def start() -> None:
     loop = asyncio.get_running_loop()
     for sig in (signal.SIGINT, signal.SIGTERM):
         try:
-            loop.add_signal_handler(
-                sig, lambda s=sig: asyncio.create_task(shutdown(s))
-            )
+            loop.add_signal_handler(sig, lambda s=sig: asyncio.create_task(shutdown(s)))
         except (NotImplementedError, ValueError):
             logger.warning(
                 f"Signal handler for {sig.name} not supported on this platform."
             )
 
     try:
+        await init_db()
         await serve(app, hypercorn_config, shutdown_trigger=shutdown_event.wait)
-    except Exception as e:
-        logger.error(f"Server error: {e}", exc_info=True)
+    except Exception:
+        logger.exception("Server error")
         raise
+    finally:
+        await close_db()
 
 
 if __name__ == "__main__":
-    logger.info(f"Starting FastAPI app")
+    logger.info("Starting FastAPI app")
     try:
         asyncio.run(start())
     except KeyboardInterrupt:
