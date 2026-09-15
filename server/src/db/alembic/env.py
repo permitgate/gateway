@@ -16,7 +16,7 @@ from config import get_db_config
 config = context.config
 
 db_config = get_db_config()
-config.set_main_option("sqlalchemy.url", db_config.url)
+config.set_main_option("sqlalchemy.url", db_config.url.replace("%", "%%"))
 
 target_metadata = None
 
