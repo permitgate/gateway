@@ -3,12 +3,14 @@
 # This program is licensed under the GNU Affero General Public License v3.0 only.
 # See LICENSE or go to <https://www.gnu.org/licenses/agpl.txt> for full license details.
 
+import asyncio
 import logging
 from collections.abc import AsyncGenerator
 
 from alembic.command import upgrade
 from alembic.config import Config
 from sqlalchemy import text
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -60,7 +62,7 @@ async def _create_dummy_data() -> None:
 
 
 async def init_db() -> None:
-    """Initialize database connection on startup."""
+    """Initialize database connection on startup with retry logic."""
     global _async_engine, _async_session_maker
 
     db_config = get_db_config()
@@ -82,7 +84,23 @@ async def init_db() -> None:
     )
 
     if db_config.create_dummy_data:
-        await _create_dummy_data()
+        max_retries = 10
+        retry_delay = 1
+        for attempt in range(max_retries):
+            try:
+                await _create_dummy_data()
+                break
+            except OperationalError as e:
+                if attempt < max_retries - 1:
+                    logger.warning(
+                        f"Failed to connect to database (attempt {attempt + 1}/{max_retries}), "
+                        f"retrying in {retry_delay}s: {e}"
+                    )
+                    await asyncio.sleep(retry_delay)
+                    retry_delay = min(retry_delay * 1.5, 5)
+                else:
+                    logger.error("Failed to connect to database after all retries")
+                    raise
 
     logger.info("Database connection initialized")
 

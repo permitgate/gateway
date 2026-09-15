@@ -3,7 +3,7 @@
 # This program is licensed under the GNU Affero General Public License v3.0 only.
 # See LICENSE or go to <https://www.gnu.org/licenses/agpl.txt> for full license details.
 
-"""Create tenants table
+"""Initial migration
 
 Revision ID: 001
 Revises:

@@ -11,8 +11,8 @@ from sqlalchemy.engine import URL
 class AppConfig(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
-    host: str = Field(default="0.0.0.0", alias="HITL_GATEWAY_HOST")
-    port: int = Field(default=8080, alias="HITL_GATEWAY_PORT")
+    host: str = Field(default="0.0.0.0", alias="GATEWAY_HOST")
+    port: int = Field(default=8080, alias="GATEWAY_PORT")
 
 
 class DatabaseConfig(BaseSettings):
