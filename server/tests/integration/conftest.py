@@ -144,5 +144,5 @@ async def cleanup_database(test_session):
         await test_session.execute(text("DELETE FROM flow_versions"))
         await test_session.execute(text("DELETE FROM approval_flows"))
         await test_session.commit()
-    except Exception:
+    except Exception:  # noqa: BLE001
         await test_session.rollback()

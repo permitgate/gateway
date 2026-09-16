@@ -329,7 +329,7 @@ class TestApprovalFlowsServiceUpdate:
             reset_on_edit=True,
         )
 
-        updated_flow = await approval_flows_service.update_flow(
+        await approval_flows_service.update_flow(
             session=test_session,
             tenant_id=sample_tenant.id,
             flow_id=original_flow.id,
