@@ -7,7 +7,11 @@ from .approval_flow import ApprovalFlow, ApprovalFlowVersion
 from .approval_state import ApprovalState
 from .callback_state import CallbackState
 from .execution_state import ExecutionState
+from .group_membership import GroupMembership
 from .notification_state import NotificationState
+from .reviewer_group import ReviewerGroup
+from .user import User
+from .user_role import UserRole
 
 __all__ = [
     "ApprovalFlow",
@@ -15,5 +19,9 @@ __all__ = [
     "ApprovalState",
     "CallbackState",
     "ExecutionState",
+    "GroupMembership",
     "NotificationState",
+    "ReviewerGroup",
+    "User",
+    "UserRole",
 ]

@@ -31,8 +31,6 @@ _ERROR_RESPONSE = {
     },
 }
 
-_TENANT_ID_DEFAULT = uuid.UUID("00000000-0000-0000-0000-000000000000")
-
 router = APIRouter(
     prefix="/tenants/{tenant_id}/approval-flows", tags=["Approval Flows"]
 )
