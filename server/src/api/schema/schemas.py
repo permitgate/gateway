@@ -111,7 +111,7 @@ class GroupMembershipCreate(BaseModel):
     """Schema for adding a user to a group."""
 
     user_id: uuid.UUID
-    priority: int = 0
+    priority: int = Field(default=0, ge=0)
 
 
 class GroupMembershipResponse(BaseModel):

@@ -8,7 +8,7 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from db.models import GroupMembership
+from db.models import GroupMembership, ReviewerGroup
 
 
 class GroupMembershipsRepository:
@@ -91,8 +91,8 @@ class GroupMembershipsRepository:
 
     async def list_group_memberships_by_user(
         self, session: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUID
-    ) -> list[GroupMembership]:
-        """List all groups a user is a member of for a tenant.
+    ) -> list[tuple[GroupMembership, ReviewerGroup]]:
+        """List all groups a user is a member of for a tenant, joined with group data.
 
         Args:
             session: Database session
@@ -100,15 +100,21 @@ class GroupMembershipsRepository:
             user_id: ID of the user
 
         Returns:
-            List of GroupMembership objects for the user
+            List of tuples (GroupMembership, ReviewerGroup) for the user
         """
         result = await session.execute(
-            select(GroupMembership).where(
+            select(GroupMembership, ReviewerGroup)
+            .join(
+                ReviewerGroup,
+                (GroupMembership.group_id == ReviewerGroup.id)
+                & (GroupMembership.tenant_id == ReviewerGroup.tenant_id),
+            )
+            .where(
                 (GroupMembership.tenant_id == tenant_id)
                 & (GroupMembership.user_id == user_id)
             )
         )
-        return result.scalars().all()
+        return result.all()
 
     async def delete_group_membership(
         self, session: AsyncSession, tenant_id: uuid.UUID, membership_id: uuid.UUID

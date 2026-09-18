@@ -14,7 +14,10 @@ from api.users import group_router, router
 from db import get_session
 from db.models import GroupMembership, ReviewerGroup, User
 from service.exceptions import (
+    ReviewerGroupExistsError,
     ReviewerGroupNotFoundError,
+    UserAlreadyInGroupError,
+    UserExistsError,
     UserNotFoundError,
 )
 
@@ -106,6 +109,44 @@ def test_create_user_minimal(mock_service, client, sample_user, sample_tenant_id
     assert response.status_code == 201
     data = response.json()
     assert data["email"] == "minimal@example.com"
+
+
+@patch("api.users.service")
+def test_create_user_already_exists(mock_service, client, sample_tenant_id):
+    """Test creating a user that already exists."""
+    mock_service.create_user = AsyncMock(
+        side_effect=UserExistsError("User with email test@example.com already exists")
+    )
+
+    payload = {
+        "email": "test@example.com",
+        "role": "reviewer",
+    }
+
+    response = client.post(f"/tenants/{sample_tenant_id}/users/", json=payload)
+
+    assert response.status_code == 409
+    data = response.json()
+    assert "already exists" in data["detail"]
+
+
+@patch("api.users.service")
+def test_create_user_duplicate_slack_id(mock_service, client, sample_tenant_id):
+    """Test creating a user with duplicate Slack ID."""
+    mock_service.create_user = AsyncMock(
+        side_effect=UserExistsError("User with Slack ID U123456 already exists")
+    )
+
+    payload = {
+        "email": "new@example.com",
+        "slack_user_id": "U123456",
+    }
+
+    response = client.post(f"/tenants/{sample_tenant_id}/users/", json=payload)
+
+    assert response.status_code == 409
+    data = response.json()
+    assert "Slack ID" in data["detail"]
 
 
 @patch("api.users.service")
@@ -237,6 +278,48 @@ def test_update_user_not_found(mock_service, client, sample_tenant_id):
     assert response.status_code == 404
     data = response.json()
     assert "User not found" in data["detail"]
+
+
+@patch("api.users.service")
+def test_update_user_duplicate_email(
+    mock_service, client, sample_user, sample_tenant_id
+):
+    """Test updating a user with a duplicate email."""
+    mock_service.update_user = AsyncMock(
+        side_effect=UserExistsError(
+            "User with email existing@example.com already exists"
+        )
+    )
+
+    payload = {"email": "existing@example.com"}
+
+    response = client.put(
+        f"/tenants/{sample_tenant_id}/users/{sample_user.id}", json=payload
+    )
+
+    assert response.status_code == 409
+    data = response.json()
+    assert "already exists" in data["detail"]
+
+
+@patch("api.users.service")
+def test_update_user_duplicate_teams_id(
+    mock_service, client, sample_user, sample_tenant_id
+):
+    """Test updating a user with a duplicate Teams ID."""
+    mock_service.update_user = AsyncMock(
+        side_effect=UserExistsError("User with Teams ID T123456 already exists")
+    )
+
+    payload = {"teams_user_id": "T123456"}
+
+    response = client.put(
+        f"/tenants/{sample_tenant_id}/users/{sample_user.id}", json=payload
+    )
+
+    assert response.status_code == 409
+    data = response.json()
+    assert "Teams ID" in data["detail"]
 
 
 @patch("api.users.service")
@@ -421,6 +504,27 @@ def test_create_group_user_not_found(
 
 
 @patch("api.users.service")
+def test_create_group_already_exists(mock_service, client, sample_tenant_id):
+    """Test creating a group that already exists."""
+    mock_service.create_group_with_users = AsyncMock(
+        side_effect=ReviewerGroupExistsError(
+            "Group with name Test Group already exists"
+        )
+    )
+
+    payload = {
+        "name": "Test Group",
+        "user_ids": [],
+    }
+
+    response = client.post(f"/tenants/{sample_tenant_id}/groups/", json=payload)
+
+    assert response.status_code == 409
+    data = response.json()
+    assert "already exists" in data["detail"]
+
+
+@patch("api.users.service")
 def test_list_groups(mock_service, client, sample_group, sample_tenant_id):
     """Test listing all groups for a tenant."""
     mock_service.list_tenant_groups = AsyncMock(return_value=[sample_group])
@@ -571,6 +675,34 @@ def test_add_user_to_group_user_not_found(
     assert response.status_code == 404
     data = response.json()
     assert "User" in data["detail"] and "not found" in data["detail"]
+
+
+@patch("api.users.service")
+def test_add_user_to_group_already_member(
+    mock_service, client, sample_group, sample_tenant_id, sample_user_id, sample_user
+):
+    """Test adding a user to a group when they're already a member."""
+    mock_service.get_group_by_id = AsyncMock(return_value=sample_group)
+    mock_service.get_user = AsyncMock(return_value=sample_user)
+    mock_service.add_user_to_group = AsyncMock(
+        side_effect=UserAlreadyInGroupError(
+            f"User {sample_user_id} is already a member of {sample_group.id} group"
+        )
+    )
+
+    payload = {
+        "user_id": str(sample_user_id),
+        "priority": 0,
+    }
+
+    response = client.post(
+        f"/tenants/{sample_tenant_id}/groups/{sample_group.id}/members",
+        json=payload,
+    )
+
+    assert response.status_code == 409
+    data = response.json()
+    assert "already a member" in data["detail"]
 
 
 @patch("api.users.service")

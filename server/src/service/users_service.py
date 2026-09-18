@@ -5,13 +5,19 @@
 
 import uuid
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.repo.group_memberships_repo import GroupMembershipsRepository
 from db.repo.reviewer_groups_repo import ReviewerGroupsRepository
 from db.repo.users_repo import UsersRepository
 from model import GroupMembership, ReviewerGroup, User, UserRole
-from service.exceptions import UserNotFoundError
+from service.exceptions import (
+    ReviewerGroupExistsError,
+    UserAlreadyInGroupError,
+    UserExistsError,
+    UserNotFoundError,
+)
 
 
 class UsersService:
@@ -46,17 +52,34 @@ class UsersService:
         Returns:
             The created User object
         """
-        user = await self._repo.create_user(
-            session=session,
-            tenant_id=tenant_id,
-            email=email,
-            role=role,
-            slack_user_id=slack_user_id,
-            teams_user_id=teams_user_id,
-            telegram_user_id=telegram_user_id,
-        )
-        await session.commit()
-        return User.model_validate(user, from_attributes=True)
+        try:
+            user = await self._repo.create_user(
+                session=session,
+                tenant_id=tenant_id,
+                email=email,
+                role=role,
+                slack_user_id=slack_user_id,
+                teams_user_id=teams_user_id,
+                telegram_user_id=telegram_user_id,
+            )
+            await session.commit()
+            return User.model_validate(user, from_attributes=True)
+        except IntegrityError as e:
+            if "uq_tenant_user_email" in str(e):
+                raise UserExistsError(f"User with email {email} already exists")
+            if "uq_tenant_slack_id" in str(e):
+                raise UserExistsError(
+                    f"User with Slack ID {slack_user_id} already exists"
+                )
+            if "uq_tenant_teams_id" in str(e):
+                raise UserExistsError(
+                    f"User with Teams ID {teams_user_id} already exists"
+                )
+            if "uq_tenant_telegram_id" in str(e):
+                raise UserExistsError(
+                    f"User with Telegram ID {telegram_user_id} already exists"
+                )
+            raise UserExistsError("User already exists")
 
     async def get_user(
         self, session: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUID
@@ -135,11 +158,31 @@ class UsersService:
         Raises:
             UserNotFoundError: If the user is not found
         """
-        user = await self._repo.update_user(session, tenant_id, user_id, **kwargs)
-        if not user:
-            raise UserNotFoundError(user_id)
-        await session.commit()
-        return User.model_validate(user, from_attributes=True)
+        try:
+            user = await self._repo.update_user(session, tenant_id, user_id, **kwargs)
+            if not user:
+                raise UserNotFoundError(user_id)
+            await session.commit()
+            await session.refresh(user)
+            return User.model_validate(user, from_attributes=True)
+        except IntegrityError as e:
+            if "uq_tenant_user_email" in str(e):
+                raise UserExistsError(
+                    f"User with email {kwargs['email']} already exists"
+                )
+            if "uq_tenant_slack_id" in str(e):
+                raise UserExistsError(
+                    f"User with Slack ID {kwargs['slack_user_id']} already exists"
+                )
+            if "uq_tenant_teams_id" in str(e):
+                raise UserExistsError(
+                    f"User with Teams ID {kwargs['teams_user_id']} already exists"
+                )
+            if "uq_tenant_telegram_id" in str(e):
+                raise UserExistsError(
+                    f"User with Telegram ID {kwargs['telegram_user_id']} already exists"
+                )
+            raise UserExistsError("User already exists")
 
     async def delete_user(
         self, session: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUID
@@ -181,10 +224,13 @@ class UsersService:
         Returns:
             The created ReviewerGroup object
         """
-        group = await self._group_repo.create_reviewer_group(
-            session=session, tenant_id=tenant_id, name=name
-        )
-        await session.flush()
+        try:
+            group = await self._group_repo.create_reviewer_group(
+                session=session, tenant_id=tenant_id, name=name
+            )
+            await session.flush()
+        except IntegrityError:
+            raise ReviewerGroupExistsError(f"Group with name {name} already exists")
         for user_id in user_ids:
             await self._membership_repo.create_group_membership(
                 session=session,
@@ -215,15 +261,20 @@ class UsersService:
         Returns:
             The created GroupMembership object
         """
-        membership = await self._membership_repo.create_group_membership(
-            session=session,
-            tenant_id=tenant_id,
-            group_id=group_id,
-            user_id=user_id,
-            priority=priority,
-        )
-        await session.commit()
-        return GroupMembership.model_validate(membership, from_attributes=True)
+        try:
+            membership = await self._membership_repo.create_group_membership(
+                session=session,
+                tenant_id=tenant_id,
+                group_id=group_id,
+                user_id=user_id,
+                priority=priority,
+            )
+            await session.commit()
+            return GroupMembership.model_validate(membership, from_attributes=True)
+        except IntegrityError:
+            raise UserAlreadyInGroupError(
+                f"User {user_id} is already a member of {group_id} group"
+            )
 
     async def remove_user_from_group(
         self,
@@ -286,19 +337,15 @@ class UsersService:
         Returns:
             List of ReviewerGroup objects the user belongs to
         """
-        memberships = await self._membership_repo.list_group_memberships_by_user(
-            session=session, tenant_id=tenant_id, user_id=user_id
-        )
-        groups = []
-        for membership in memberships:
-            group = await self._group_repo.get_reviewer_group_by_id(
-                session=session,
-                tenant_id=tenant_id,
-                reviewer_group_id=membership.group_id,
+        membership_group_pairs = (
+            await self._membership_repo.list_group_memberships_by_user(
+                session=session, tenant_id=tenant_id, user_id=user_id
             )
-            if group:
-                groups.append(ReviewerGroup.model_validate(group, from_attributes=True))
-        return groups
+        )
+        return [
+            ReviewerGroup.model_validate(group, from_attributes=True)
+            for _, group in membership_group_pairs
+        ]
 
     async def list_tenant_groups(
         self, session: AsyncSession, tenant_id: uuid.UUID

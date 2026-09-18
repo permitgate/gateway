@@ -38,6 +38,13 @@ class UserNotFoundError(Exception):
         super().__init__(f"User with ID {user_id} not found")
 
 
+class UserExistsError(Exception):
+    """Raised when a user already exists."""
+
+    def __init__(self, message: str):
+        super().__init__(message)
+
+
 class ReviewerGroupNotFoundError(Exception):
     """Raised when a reviewer group is not found."""
 
@@ -46,9 +53,23 @@ class ReviewerGroupNotFoundError(Exception):
         super().__init__(f"Reviewer group with ID {group_id} not found")
 
 
+class ReviewerGroupExistsError(Exception):
+    """Raised when a reviewer group already exists."""
+
+    def __init__(self, message: str):
+        super().__init__(message)
+
+
 class GroupMembershipNotFoundError(Exception):
     """Raised when a group membership is not found."""
 
     def __init__(self, membership_id: uuid.UUID):
         self.membership_id = membership_id
         super().__init__(f"Group membership with ID {membership_id} not found")
+
+
+class UserAlreadyInGroupError(Exception):
+    """Raised when a user is already member of reviewer group."""
+
+    def __init__(self, message: str):
+        super().__init__(message)

@@ -6,11 +6,11 @@ WORKDIR /app
 COPY server/pyproject.toml /app/
 COPY server/uv.lock /app/
 COPY server/alembic.ini /app/
-COPY server/src /app/src/
 
 RUN uv sync --locked
 
 ENV PYTHONPATH=/app/src
+COPY server/src /app/src/
 
 WORKDIR /app/src
 

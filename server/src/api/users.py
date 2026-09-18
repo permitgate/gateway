@@ -19,7 +19,10 @@ from api.schema.schemas import (
 )
 from db import get_session
 from service.exceptions import (
+    ReviewerGroupExistsError,
     ReviewerGroupNotFoundError,
+    UserAlreadyInGroupError,
+    UserExistsError,
     UserNotFoundError,
 )
 from service.users_service import UsersService
@@ -42,6 +45,7 @@ service = UsersService()
     response_model=UserResponse,
     responses={
         201: {"description": "User created successfully"},
+        409: _ERROR_RESPONSE,
     },
     status_code=201,
 )
@@ -52,17 +56,20 @@ async def create_user(
 ) -> UserResponse:
     """Create a new user for a tenant.
 
-    Returns 201 with the created User object."""
-    created_user = await service.create_user(
-        session=session,
-        tenant_id=tenant_id,
-        email=user.email,
-        role=user.role,
-        slack_user_id=user.slack_user_id,
-        teams_user_id=user.teams_user_id,
-        telegram_user_id=user.telegram_user_id,
-    )
-    return UserResponse.model_validate(created_user, from_attributes=True)
+    Returns 201 with the created User object or 409 if user already exists."""
+    try:
+        created_user = await service.create_user(
+            session=session,
+            tenant_id=tenant_id,
+            email=user.email,
+            role=user.role,
+            slack_user_id=user.slack_user_id,
+            teams_user_id=user.teams_user_id,
+            telegram_user_id=user.telegram_user_id,
+        )
+        return UserResponse.model_validate(created_user, from_attributes=True)
+    except UserExistsError as e:
+        raise HTTPException(status_code=409, detail=str(e))
 
 
 @router.get(
@@ -112,6 +119,7 @@ async def get_user(
     responses={
         200: {"description": "User updated successfully"},
         404: _ERROR_RESPONSE,
+        409: _ERROR_RESPONSE,
     },
 )
 async def update_user(
@@ -122,7 +130,7 @@ async def update_user(
 ) -> UserResponse:
     """Update a user for a tenant.
 
-    Returns 200 with the updated User object or 404 if not found."""
+    Returns 200 with the updated User object, 404 if not found, or 409 if duplicate."""
     try:
         update_data = user_update.model_dump(exclude_unset=True)
         updated_user = await service.update_user(
@@ -131,6 +139,8 @@ async def update_user(
         return UserResponse.model_validate(updated_user, from_attributes=True)
     except UserNotFoundError:
         raise HTTPException(status_code=404, detail="User not found")
+    except UserExistsError as e:
+        raise HTTPException(status_code=409, detail=str(e))
 
 
 @router.delete(
@@ -183,13 +193,16 @@ async def create_group(
         except UserNotFoundError:
             raise HTTPException(status_code=404, detail=f"User {user_id} not found")
 
-    created_group = await service.create_group_with_users(
-        session=session,
-        tenant_id=tenant_id,
-        name=group.name,
-        user_ids=group.user_ids,
-    )
-    return GroupResponse.model_validate(created_group, from_attributes=True)
+    try:
+        created_group = await service.create_group_with_users(
+            session=session,
+            tenant_id=tenant_id,
+            name=group.name,
+            user_ids=group.user_ids,
+        )
+        return GroupResponse.model_validate(created_group, from_attributes=True)
+    except ReviewerGroupExistsError as e:
+        raise HTTPException(status_code=409, detail=str(e))
 
 
 @group_router.get(
@@ -292,6 +305,8 @@ async def add_user_to_group(
         raise HTTPException(
             status_code=404, detail=f"User {membership.user_id} not found"
         )
+    except UserAlreadyInGroupError as e:
+        raise HTTPException(status_code=409, detail=str(e))
 
 
 @group_router.delete(

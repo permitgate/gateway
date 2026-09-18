@@ -15,7 +15,10 @@ from db.models import Tenant
 from model import UserRole
 from service.exceptions import (
     GroupMembershipNotFoundError,
+    ReviewerGroupExistsError,
     ReviewerGroupNotFoundError,
+    UserAlreadyInGroupError,
+    UserExistsError,
     UserNotFoundError,
 )
 from service.users_service import UsersService
@@ -1258,3 +1261,190 @@ class TestUsersServiceGetMembershipById:
             await users_service.get_membership_by_id(
                 test_session, tenant2_id, membership_id
             )
+
+
+class TestUsersServiceIntegrityErrors:
+    """Tests for IntegrityError handling in the users service."""
+
+    async def test_create_user_duplicate_email(
+        self, users_service, test_session, sample_tenant
+    ):
+        """Test creating a user with a duplicate email raises UserExistsError."""
+        await users_service.create_user(
+            session=test_session,
+            tenant_id=sample_tenant.id,
+            email="duplicate@example.com",
+        )
+
+        with pytest.raises(UserExistsError) as exc_info:
+            await users_service.create_user(
+                session=test_session,
+                tenant_id=sample_tenant.id,
+                email="duplicate@example.com",
+            )
+
+        assert "already exists" in str(exc_info.value)
+
+    async def test_create_user_duplicate_slack_id(
+        self, users_service, test_session, sample_tenant
+    ):
+        """Test creating a user with a duplicate Slack ID raises UserExistsError."""
+        await users_service.create_user(
+            session=test_session,
+            tenant_id=sample_tenant.id,
+            email="user1@example.com",
+            slack_user_id="U123456",
+        )
+
+        with pytest.raises(UserExistsError) as exc_info:
+            await users_service.create_user(
+                session=test_session,
+                tenant_id=sample_tenant.id,
+                email="user2@example.com",
+                slack_user_id="U123456",
+            )
+
+        assert "Slack ID" in str(exc_info.value)
+
+    async def test_create_user_duplicate_teams_id(
+        self, users_service, test_session, sample_tenant
+    ):
+        """Test creating a user with a duplicate Teams ID raises UserExistsError."""
+        await users_service.create_user(
+            session=test_session,
+            tenant_id=sample_tenant.id,
+            email="user1@example.com",
+            teams_user_id="T123456",
+        )
+
+        with pytest.raises(UserExistsError) as exc_info:
+            await users_service.create_user(
+                session=test_session,
+                tenant_id=sample_tenant.id,
+                email="user2@example.com",
+                teams_user_id="T123456",
+            )
+
+        assert "Teams ID" in str(exc_info.value)
+
+    async def test_create_user_duplicate_telegram_id(
+        self, users_service, test_session, sample_tenant
+    ):
+        """Test creating a user with a duplicate Telegram ID raises UserExistsError."""
+        await users_service.create_user(
+            session=test_session,
+            tenant_id=sample_tenant.id,
+            email="user1@example.com",
+            telegram_user_id="TG123456",
+        )
+
+        with pytest.raises(UserExistsError) as exc_info:
+            await users_service.create_user(
+                session=test_session,
+                tenant_id=sample_tenant.id,
+                email="user2@example.com",
+                telegram_user_id="TG123456",
+            )
+
+        assert "Telegram ID" in str(exc_info.value)
+
+    async def test_update_user_duplicate_email(
+        self, users_service, test_session, sample_tenant
+    ):
+        """Test updating a user to a duplicate email raises UserExistsError."""
+        user1 = await users_service.create_user(
+            session=test_session,
+            tenant_id=sample_tenant.id,
+            email="user1@example.com",
+        )
+
+        await users_service.create_user(
+            session=test_session,
+            tenant_id=sample_tenant.id,
+            email="user2@example.com",
+        )
+
+        with pytest.raises(UserExistsError) as exc_info:
+            await users_service.update_user(
+                session=test_session,
+                tenant_id=sample_tenant.id,
+                user_id=user1.id,
+                email="user2@example.com",
+            )
+
+        assert "already exists" in str(exc_info.value)
+
+    async def test_update_user_duplicate_slack_id(
+        self, users_service, test_session, sample_tenant
+    ):
+        """Test updating a user to a duplicate Slack ID raises UserExistsError."""
+        user1 = await users_service.create_user(
+            session=test_session,
+            tenant_id=sample_tenant.id,
+            email="user1@example.com",
+        )
+
+        await users_service.create_user(
+            session=test_session,
+            tenant_id=sample_tenant.id,
+            email="user2@example.com",
+            slack_user_id="U123456",
+        )
+
+        with pytest.raises(UserExistsError) as exc_info:
+            await users_service.update_user(
+                session=test_session,
+                tenant_id=sample_tenant.id,
+                user_id=user1.id,
+                slack_user_id="U123456",
+            )
+
+        assert "Slack ID" in str(exc_info.value)
+
+    async def test_create_group_duplicate_name(
+        self, users_service, test_session, sample_tenant
+    ):
+        """Test creating a group with a duplicate name raises ReviewerGroupExistsError."""
+        await users_service.create_group_with_users(
+            session=test_session,
+            tenant_id=sample_tenant.id,
+            name="Duplicate Group",
+            user_ids=[],
+        )
+
+        with pytest.raises(ReviewerGroupExistsError) as exc_info:
+            await users_service.create_group_with_users(
+                session=test_session,
+                tenant_id=sample_tenant.id,
+                name="Duplicate Group",
+                user_ids=[],
+            )
+
+        assert "already exists" in str(exc_info.value)
+
+    async def test_add_user_to_group_duplicate_membership(
+        self, users_service, test_session, sample_tenant
+    ):
+        """Test adding a user to a group twice raises UserAlreadyInGroupError."""
+        user = await users_service.create_user(
+            session=test_session,
+            tenant_id=sample_tenant.id,
+            email="user@example.com",
+        )
+
+        group = await users_service.create_group_with_users(
+            session=test_session,
+            tenant_id=sample_tenant.id,
+            name="Group 1",
+            user_ids=[user.id],
+        )
+
+        with pytest.raises(UserAlreadyInGroupError) as exc_info:
+            await users_service.add_user_to_group(
+                session=test_session,
+                tenant_id=sample_tenant.id,
+                group_id=group.id,
+                user_id=user.id,
+            )
+
+        assert "already a member" in str(exc_info.value)
