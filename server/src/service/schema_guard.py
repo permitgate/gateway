@@ -99,10 +99,14 @@ def _walk_schema(
         return
 
     stats.max_depth = max(stats.max_depth, depth)
+    stats.total_keys += len(schema)
 
     for key, value in schema.items():
-        if key in _BANNED_KEYWORDS:
+        if key in _BANNED_KEYWORDS or key == "$schema":
             raise InvalidFlowSchemaError(f"'{key}' is not permitted (at {path or '/'})")
+
+        if isinstance(value, list):
+            stats.total_keys += len(value)
 
         if key == "pattern":
             _check_pattern(value, f"{path}/pattern", config)
