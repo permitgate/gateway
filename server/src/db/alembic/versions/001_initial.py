@@ -205,8 +205,32 @@ def upgrade() -> None:
         ["id"],
     )
 
+    op.create_check_constraint(
+        "chk_flow_version_json_schema_shape",
+        "flow_versions",
+        "jsonb_typeof(json_schema) = 'object' "
+        "AND octet_length(json_schema::text) <= 65536 "
+        "AND (json_schema = '{}'::jsonb "
+        "OR COALESCE(json_schema->>'$schema' = 'https://json-schema.org/draft/2020-12/schema', false))",
+    )
+    op.create_check_constraint(
+        "chk_flow_version_schema_toggle_coherence",
+        "flow_versions",
+        "(json_schema = '{}'::jsonb) = (NOT schema_validation_enabled)",
+    )
+
 
 def downgrade() -> None:
+    op.drop_constraint(
+        "chk_flow_version_schema_toggle_coherence",
+        "flow_versions",
+        type_="check",
+    )
+    op.drop_constraint(
+        "chk_flow_version_json_schema_shape",
+        "flow_versions",
+        type_="check",
+    )
     op.drop_constraint(
         "fk_approval_flows_active_version_id",
         "approval_flows",

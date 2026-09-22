@@ -5,6 +5,7 @@
 
 import uuid
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.repo.approval_flows_repo import ApprovalFlowsRepository
@@ -13,8 +14,10 @@ from model import ApprovalFlow, ApprovalFlowVersion
 from service.exceptions import (
     ApprovalFlowNotFoundError,
     FlowVersionNotFoundError,
+    InvalidFlowSchemaError,
     NoActiveVersionError,
 )
+from service.schema_guard import validate_flow_json_schema, validate_flow_preview_schema
 
 
 class ApprovalFlowsService:
@@ -50,30 +53,49 @@ class ApprovalFlowsService:
         Returns:
             The created ApprovalFlow object
         """
+        if schema_validation_enabled and json_schema == {}:
+            raise InvalidFlowSchemaError(
+                "json_schema must not be empty when schema_validation_enabled is true"
+            )
+        if not schema_validation_enabled and json_schema != {}:
+            raise InvalidFlowSchemaError(
+                "json_schema must be {} when schema_validation_enabled is false"
+            )
+        validate_flow_json_schema(json_schema)
+        validate_flow_preview_schema(preview_schema)
+
         flow_id = uuid.uuid4()
-        flow = await self._repo.create_flow(
-            session=session, tenant_id=tenant_id, id=flow_id, name=name
-        )
-        await session.flush()
-        flow_version = await self._version_repo.create_flow_version(
-            session=session,
-            tenant_id=tenant_id,
-            flow_id=flow_id,
-            version=1,
-            json_schema=json_schema,
-            preview_schema=preview_schema,
-            schema_validation_enabled=schema_validation_enabled,
-            sla_seconds=sla_seconds,
-            reset_on_edit=reset_on_edit,
-        )
-        await session.flush()
-        await self._repo.set_active_version_id(
-            session=session,
-            tenant_id=tenant_id,
-            flow_id=flow_id,
-            active_version_id=flow_version.id,
-        )
-        await session.commit()
+        try:
+            flow = await self._repo.create_flow(
+                session=session, tenant_id=tenant_id, id=flow_id, name=name
+            )
+            await session.flush()
+            flow_version = await self._version_repo.create_flow_version(
+                session=session,
+                tenant_id=tenant_id,
+                flow_id=flow_id,
+                version=1,
+                json_schema=json_schema,
+                preview_schema=preview_schema,
+                schema_validation_enabled=schema_validation_enabled,
+                sla_seconds=sla_seconds,
+                reset_on_edit=reset_on_edit,
+            )
+            await session.flush()
+            await self._repo.set_active_version_id(
+                session=session,
+                tenant_id=tenant_id,
+                flow_id=flow_id,
+                active_version_id=flow_version.id,
+            )
+            await session.commit()
+        except IntegrityError as exc:
+            await session.rollback()
+            if "chk_flow_version_json_schema_shape" in str(exc):
+                raise InvalidFlowSchemaError(
+                    "json_schema exceeds maximum size"
+                ) from exc
+            raise
         return ApprovalFlow.model_validate(flow, from_attributes=True)
 
     async def update_flow(
@@ -104,6 +126,17 @@ class ApprovalFlowsService:
         Returns:
             The created ApprovalFlow object
         """
+        if schema_validation_enabled and json_schema == {}:
+            raise InvalidFlowSchemaError(
+                "json_schema must not be empty when schema_validation_enabled is true"
+            )
+        if not schema_validation_enabled and json_schema != {}:
+            raise InvalidFlowSchemaError(
+                "json_schema must be {} when schema_validation_enabled is false"
+            )
+        validate_flow_json_schema(json_schema)
+        validate_flow_preview_schema(preview_schema)
+
         flow = await self._repo.get_flow_by_id_for_update(session, tenant_id, flow_id)
         if not flow:
             raise ApprovalFlowNotFoundError(flow_id)
@@ -116,25 +149,33 @@ class ApprovalFlowsService:
         if not active_version:
             raise FlowVersionNotFoundError(flow.active_version_id)
 
-        new_flow_version = await self._version_repo.create_flow_version(
-            session=session,
-            tenant_id=tenant_id,
-            flow_id=flow_id,
-            version=active_version.version + 1,
-            json_schema=json_schema,
-            preview_schema=preview_schema,
-            schema_validation_enabled=schema_validation_enabled,
-            sla_seconds=sla_seconds,
-            reset_on_edit=reset_on_edit,
-        )
-        await session.flush()
-        await self._repo.set_active_version_id(
-            session=session,
-            tenant_id=tenant_id,
-            flow_id=flow_id,
-            active_version_id=new_flow_version.id,
-        )
-        await session.commit()
+        try:
+            new_flow_version = await self._version_repo.create_flow_version(
+                session=session,
+                tenant_id=tenant_id,
+                flow_id=flow_id,
+                version=active_version.version + 1,
+                json_schema=json_schema,
+                preview_schema=preview_schema,
+                schema_validation_enabled=schema_validation_enabled,
+                sla_seconds=sla_seconds,
+                reset_on_edit=reset_on_edit,
+            )
+            await session.flush()
+            await self._repo.set_active_version_id(
+                session=session,
+                tenant_id=tenant_id,
+                flow_id=flow_id,
+                active_version_id=new_flow_version.id,
+            )
+            await session.commit()
+        except IntegrityError as exc:
+            await session.rollback()
+            if "chk_flow_version_json_schema_shape" in str(exc):
+                raise InvalidFlowSchemaError(
+                    "json_schema exceeds maximum size"
+                ) from exc
+            raise
         return ApprovalFlow.model_validate(flow, from_attributes=True)
 
     async def list_flows(
