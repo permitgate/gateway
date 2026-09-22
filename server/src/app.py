@@ -7,6 +7,8 @@ from fastapi import FastAPI
 from fastapi_healthchecks.api.router import HealthcheckRouter, Probe
 
 from api.approval_flows import router as approval_flows_router
+from api.users import group_router
+from api.users import router as users_router
 
 app = FastAPI(
     title="PermitGate Gateway API",
@@ -34,3 +36,5 @@ app.include_router(
     prefix="/health",
 )
 app.include_router(approval_flows_router)
+app.include_router(users_router)
+app.include_router(group_router)

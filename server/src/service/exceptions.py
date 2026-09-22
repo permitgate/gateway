@@ -28,3 +28,48 @@ class FlowVersionNotFoundError(Exception):
     def __init__(self, version_id: uuid.UUID):
         self.version_id = version_id
         super().__init__(f"Flow version with ID {version_id} not found")
+
+
+class UserNotFoundError(Exception):
+    """Raised when a user is not found."""
+
+    def __init__(self, user_id: uuid.UUID):
+        self.user_id = user_id
+        super().__init__(f"User with ID {user_id} not found")
+
+
+class UserExistsError(Exception):
+    """Raised when a user already exists."""
+
+    def __init__(self, message: str):
+        super().__init__(message)
+
+
+class ReviewerGroupNotFoundError(Exception):
+    """Raised when a reviewer group is not found."""
+
+    def __init__(self, group_id: uuid.UUID):
+        self.group_id = group_id
+        super().__init__(f"Reviewer group with ID {group_id} not found")
+
+
+class ReviewerGroupExistsError(Exception):
+    """Raised when a reviewer group already exists."""
+
+    def __init__(self, message: str):
+        super().__init__(message)
+
+
+class GroupMembershipNotFoundError(Exception):
+    """Raised when a group membership is not found."""
+
+    def __init__(self, membership_id: uuid.UUID):
+        self.membership_id = membership_id
+        super().__init__(f"Group membership with ID {membership_id} not found")
+
+
+class UserAlreadyInGroupError(Exception):
+    """Raised when a user is already member of reviewer group."""
+
+    def __init__(self, message: str):
+        super().__init__(message)

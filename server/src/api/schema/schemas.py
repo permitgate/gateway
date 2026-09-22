@@ -6,7 +6,45 @@
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
+
+from model import UserRole
+
+
+class UserCreate(BaseModel):
+    """Schema for creating a user."""
+
+    email: EmailStr
+    role: UserRole = UserRole.REVIEWER
+    slack_user_id: str | None = None
+    teams_user_id: str | None = None
+    telegram_user_id: str | None = None
+
+
+class UserUpdate(BaseModel):
+    """Schema for updating a user."""
+
+    email: EmailStr | None = None
+    role: UserRole | None = None
+    slack_user_id: str | None = None
+    teams_user_id: str | None = None
+    telegram_user_id: str | None = None
+    is_active: bool | None = None
+
+
+class UserResponse(BaseModel):
+    """Schema for user response."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    email: str
+    role: UserRole
+    slack_user_id: str | None
+    teams_user_id: str | None
+    telegram_user_id: str | None
+    is_active: bool
+    created_at: datetime
 
 
 class ApprovalFlowUpdate(BaseModel):
@@ -49,4 +87,41 @@ class ApprovalFlowVersionResponse(BaseModel):
     schema_validation_enabled: bool
     sla_seconds: int
     reset_on_edit: bool
+    created_at: datetime
+
+
+class GroupCreate(BaseModel):
+    """Schema for creating a reviewer group."""
+
+    name: str
+    user_ids: list[uuid.UUID] = Field(default_factory=list)
+
+
+class GroupResponse(BaseModel):
+    """Schema for reviewer group response."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    name: str
+    created_at: datetime
+
+
+class GroupMembershipCreate(BaseModel):
+    """Schema for adding a user to a group."""
+
+    user_id: uuid.UUID
+    priority: int = Field(default=0, ge=0)
+
+
+class GroupMembershipResponse(BaseModel):
+    """Schema for group membership response."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    group_id: uuid.UUID
+    user_id: uuid.UUID
+    priority: int
+    is_active: bool
     created_at: datetime
