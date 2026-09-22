@@ -117,7 +117,12 @@ def _walk_schema(
                     f"{path}/patternProperties/{pattern}",
                     config,
                 )
-        elif key in _DEPTH_MAP_KEYS and isinstance(value, dict) or key in _FLAT_MAP_KEYS and isinstance(value, dict):
+        elif (
+            key in _DEPTH_MAP_KEYS
+            and isinstance(value, dict)
+            or key in _FLAT_MAP_KEYS
+            and isinstance(value, dict)
+        ):
             for name, subschema in value.items():
                 stats.total_keys += 1
                 _walk_schema(
