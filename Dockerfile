@@ -7,10 +7,11 @@ COPY server/pyproject.toml /app/
 COPY server/uv.lock /app/
 COPY server/alembic.ini /app/
 
-RUN uv sync --locked
+RUN uv sync --locked --no-install-project
 
 ENV PYTHONPATH=/app/src
 COPY server/src /app/src/
+RUN uv sync --locked
 
 WORKDIR /app/src
 
