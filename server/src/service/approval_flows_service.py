@@ -13,8 +13,10 @@ from model import ApprovalFlow, ApprovalFlowVersion
 from service.exceptions import (
     ApprovalFlowNotFoundError,
     FlowVersionNotFoundError,
+    InvalidFlowSchemaError,
     NoActiveVersionError,
 )
+from service.schema_guard import validate_flow_json_schema, validate_flow_preview_schema
 
 
 class ApprovalFlowsService:
@@ -50,6 +52,17 @@ class ApprovalFlowsService:
         Returns:
             The created ApprovalFlow object
         """
+        if schema_validation_enabled and json_schema == {}:
+            raise InvalidFlowSchemaError(
+                "json_schema must not be empty when schema_validation_enabled is true"
+            )
+        if not schema_validation_enabled and json_schema != {}:
+            raise InvalidFlowSchemaError(
+                "json_schema must be {} when schema_validation_enabled is false"
+            )
+        validate_flow_json_schema(json_schema)
+        validate_flow_preview_schema(preview_schema)
+
         flow_id = uuid.uuid4()
         flow = await self._repo.create_flow(
             session=session, tenant_id=tenant_id, id=flow_id, name=name
@@ -104,6 +117,17 @@ class ApprovalFlowsService:
         Returns:
             The created ApprovalFlow object
         """
+        if schema_validation_enabled and json_schema == {}:
+            raise InvalidFlowSchemaError(
+                "json_schema must not be empty when schema_validation_enabled is true"
+            )
+        if not schema_validation_enabled and json_schema != {}:
+            raise InvalidFlowSchemaError(
+                "json_schema must be {} when schema_validation_enabled is false"
+            )
+        validate_flow_json_schema(json_schema)
+        validate_flow_preview_schema(preview_schema)
+
         flow = await self._repo.get_flow_by_id_for_update(session, tenant_id, flow_id)
         if not flow:
             raise ApprovalFlowNotFoundError(flow_id)

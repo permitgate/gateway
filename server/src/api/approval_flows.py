@@ -19,6 +19,7 @@ from service.approval_flows_service import ApprovalFlowsService
 from service.exceptions import (
     ApprovalFlowNotFoundError,
     FlowVersionNotFoundError,
+    InvalidFlowSchemaError,
     NoActiveVersionError,
 )
 
@@ -42,6 +43,7 @@ service = ApprovalFlowsService()
     response_model=ApprovalFlowResponse,
     responses={
         200: {"description": "Approval flow created successfully"},
+        400: _ERROR_RESPONSE,
     },
 )
 async def create_flow(
@@ -52,17 +54,20 @@ async def create_flow(
     """Create a new approval flow for a tenant.
 
     Returns 200 with the created ApprovalFlow object."""
-    created_flow = await service.create_flow(
-        session=session,
-        tenant_id=tenant_id,
-        name=flow.name,
-        json_schema=flow.json_schema,
-        preview_schema=flow.preview_schema,
-        schema_validation_enabled=flow.schema_validation_enabled,
-        sla_seconds=flow.sla_seconds,
-        reset_on_edit=flow.reset_on_edit,
-    )
-    return ApprovalFlowResponse.model_validate(created_flow, from_attributes=True)
+    try:
+        created_flow = await service.create_flow(
+            session=session,
+            tenant_id=tenant_id,
+            name=flow.name,
+            json_schema=flow.json_schema,
+            preview_schema=flow.preview_schema,
+            schema_validation_enabled=flow.schema_validation_enabled,
+            sla_seconds=flow.sla_seconds,
+            reset_on_edit=flow.reset_on_edit,
+        )
+        return ApprovalFlowResponse.model_validate(created_flow, from_attributes=True)
+    except InvalidFlowSchemaError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
 
 @router.get(
@@ -114,6 +119,7 @@ async def get_flow(
     response_model=ApprovalFlowResponse,
     responses={
         200: {"description": "Approval flow updated successfully"},
+        400: _ERROR_RESPONSE,
         404: _ERROR_RESPONSE,
     },
 )
@@ -126,6 +132,7 @@ async def update_flow(
     """Update an approval flow by creating a new version for a tenant.
 
     Returns 200 with the updated ApprovalFlow object.
+    Returns 400 if the schema is invalid.
     Returns 404 if the flow is not found, has no active version, or active version is not found."""
     try:
         updated_flow = await service.update_flow(
@@ -139,6 +146,8 @@ async def update_flow(
             reset_on_edit=flow.reset_on_edit,
         )
         return ApprovalFlowResponse.model_validate(updated_flow, from_attributes=True)
+    except InvalidFlowSchemaError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
     except ApprovalFlowNotFoundError:
         raise HTTPException(status_code=404, detail="Approval flow not found")
     except NoActiveVersionError:

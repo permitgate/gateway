@@ -34,18 +34,27 @@ async def sample_tenant(test_session):
     return tenant
 
 
+@pytest.fixture
+def minimal_valid_schema():
+    """Return a minimal valid JSON schema."""
+    return {
+        "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+    }
+
+
 class TestApprovalFlowsServiceCreate:
     """Tests for creating approval flows."""
 
     async def test_create_flow_minimal(
-        self, approval_flows_service, test_session, sample_tenant
+        self, approval_flows_service, test_session, sample_tenant, minimal_valid_schema
     ):
         """Test creating a flow with required fields."""
         flow = await approval_flows_service.create_flow(
             session=test_session,
             tenant_id=sample_tenant.id,
             name="Test Flow",
-            json_schema={"type": "object"},
+            json_schema=minimal_valid_schema,
             preview_schema={"type": "object"},
             schema_validation_enabled=True,
             sla_seconds=3600,
@@ -63,6 +72,7 @@ class TestApprovalFlowsServiceCreate:
         """Test creating a flow with complex JSON schema."""
         json_schema = {
             "type": "object",
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
             "properties": {
                 "user_name": {"type": "string"},
                 "email": {"type": "string", "format": "email"},
@@ -105,7 +115,7 @@ class TestApprovalFlowsServiceCreate:
             session=test_session,
             tenant_id=sample_tenant.id,
             name="No Validation Flow",
-            json_schema={"type": "object"},
+            json_schema={},
             preview_schema={"type": "object"},
             schema_validation_enabled=False,
             sla_seconds=1800,
@@ -115,14 +125,14 @@ class TestApprovalFlowsServiceCreate:
         assert flow.id is not None
 
     async def test_create_flow_creates_version(
-        self, approval_flows_service, test_session, sample_tenant
+        self, approval_flows_service, test_session, sample_tenant, minimal_valid_schema
     ):
         """Test that creating a flow also creates version 1."""
         flow = await approval_flows_service.create_flow(
             session=test_session,
             tenant_id=sample_tenant.id,
             name="Flow With Version",
-            json_schema={"type": "object"},
+            json_schema=minimal_valid_schema,
             preview_schema={"type": "object"},
             schema_validation_enabled=True,
             sla_seconds=3600,
@@ -150,14 +160,14 @@ class TestApprovalFlowsServiceList:
         assert flows == []
 
     async def test_list_flows_single(
-        self, approval_flows_service, test_session, sample_tenant
+        self, approval_flows_service, test_session, sample_tenant, minimal_valid_schema
     ):
         """Test listing flows with one flow."""
         created_flow = await approval_flows_service.create_flow(
             session=test_session,
             tenant_id=sample_tenant.id,
             name="Test Flow",
-            json_schema={"type": "object"},
+            json_schema=minimal_valid_schema,
             preview_schema={"type": "object"},
             schema_validation_enabled=True,
             sla_seconds=3600,
@@ -171,14 +181,14 @@ class TestApprovalFlowsServiceList:
         assert flows[0].name == "Test Flow"
 
     async def test_list_flows_multiple(
-        self, approval_flows_service, test_session, sample_tenant
+        self, approval_flows_service, test_session, sample_tenant, minimal_valid_schema
     ):
         """Test listing multiple flows."""
         flow1 = await approval_flows_service.create_flow(
             session=test_session,
             tenant_id=sample_tenant.id,
             name="Flow 1",
-            json_schema={"type": "object"},
+            json_schema=minimal_valid_schema,
             preview_schema={"type": "object"},
             schema_validation_enabled=True,
             sla_seconds=3600,
@@ -189,7 +199,7 @@ class TestApprovalFlowsServiceList:
             session=test_session,
             tenant_id=sample_tenant.id,
             name="Flow 2",
-            json_schema={"type": "object"},
+            json_schema={},
             preview_schema={"type": "object"},
             schema_validation_enabled=False,
             sla_seconds=7200,
@@ -204,7 +214,7 @@ class TestApprovalFlowsServiceList:
         assert flow2.id in flow_ids
 
     async def test_list_flows_tenant_isolation(
-        self, approval_flows_service, test_session
+        self, approval_flows_service, test_session, minimal_valid_schema
     ):
         """Test that flows are isolated per tenant."""
         tenant1 = Tenant(id=uuid.uuid4(), name="Tenant 1")
@@ -218,7 +228,7 @@ class TestApprovalFlowsServiceList:
             session=test_session,
             tenant_id=tenant1.id,
             name="Tenant 1 Flow",
-            json_schema={"type": "object"},
+            json_schema=minimal_valid_schema,
             preview_schema={"type": "object"},
             schema_validation_enabled=True,
             sla_seconds=3600,
@@ -230,7 +240,7 @@ class TestApprovalFlowsServiceList:
             session=test_session,
             tenant_id=tenant2.id,
             name="Tenant 2 Flow",
-            json_schema={"type": "object"},
+            json_schema=minimal_valid_schema,
             preview_schema={"type": "object"},
             schema_validation_enabled=True,
             sla_seconds=3600,
@@ -254,14 +264,14 @@ class TestApprovalFlowsServiceGet:
     """Tests for getting individual flows."""
 
     async def test_get_flow_found(
-        self, approval_flows_service, test_session, sample_tenant
+        self, approval_flows_service, test_session, sample_tenant, minimal_valid_schema
     ):
         """Test retrieving an existing flow."""
         created_flow = await approval_flows_service.create_flow(
             session=test_session,
             tenant_id=sample_tenant.id,
             name="Test Flow",
-            json_schema={"type": "object"},
+            json_schema=minimal_valid_schema,
             preview_schema={"type": "object"},
             schema_validation_enabled=True,
             sla_seconds=3600,
@@ -286,7 +296,9 @@ class TestApprovalFlowsServiceGet:
                 test_session, sample_tenant.id, flow_id
             )
 
-    async def test_get_flow_wrong_tenant(self, approval_flows_service, test_session):
+    async def test_get_flow_wrong_tenant(
+        self, approval_flows_service, test_session, minimal_valid_schema
+    ):
         """Test that flows cannot be accessed by wrong tenant."""
         tenant1 = Tenant(id=uuid.uuid4(), name="Tenant 1")
         test_session.add(tenant1)
@@ -296,7 +308,7 @@ class TestApprovalFlowsServiceGet:
             session=test_session,
             tenant_id=tenant1.id,
             name="Test Flow",
-            json_schema={"type": "object"},
+            json_schema=minimal_valid_schema,
             preview_schema={"type": "object"},
             schema_validation_enabled=True,
             sla_seconds=3600,
@@ -322,7 +334,11 @@ class TestApprovalFlowsServiceUpdate:
             session=test_session,
             tenant_id=sample_tenant.id,
             name="Original Flow",
-            json_schema={"type": "object", "properties": {"name": {"type": "string"}}},
+            json_schema={
+                "type": "object",
+                "properties": {"name": {"type": "string"}},
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+            },
             preview_schema={"type": "object"},
             schema_validation_enabled=True,
             sla_seconds=3600,
@@ -333,13 +349,7 @@ class TestApprovalFlowsServiceUpdate:
             session=test_session,
             tenant_id=sample_tenant.id,
             flow_id=original_flow.id,
-            json_schema={
-                "type": "object",
-                "properties": {
-                    "name": {"type": "string"},
-                    "email": {"type": "string"},
-                },
-            },
+            json_schema={},
             preview_schema={"type": "object"},
             schema_validation_enabled=False,
             sla_seconds=7200,
@@ -359,14 +369,14 @@ class TestApprovalFlowsServiceUpdate:
         assert versions[1].sla_seconds == 7200
 
     async def test_update_flow_updates_active_version(
-        self, approval_flows_service, test_session, sample_tenant
+        self, approval_flows_service, test_session, sample_tenant, minimal_valid_schema
     ):
         """Test that updating a flow sets the new version as active."""
         flow = await approval_flows_service.create_flow(
             session=test_session,
             tenant_id=sample_tenant.id,
             name="Test Flow",
-            json_schema={"type": "object"},
+            json_schema=minimal_valid_schema,
             preview_schema={"type": "object"},
             schema_validation_enabled=True,
             sla_seconds=3600,
@@ -379,7 +389,7 @@ class TestApprovalFlowsServiceUpdate:
             session=test_session,
             tenant_id=sample_tenant.id,
             flow_id=flow.id,
-            json_schema={"type": "object"},
+            json_schema={},
             preview_schema={"type": "object"},
             schema_validation_enabled=False,
             sla_seconds=7200,
@@ -399,7 +409,7 @@ class TestApprovalFlowsServiceUpdate:
         assert updated_flow.active_version_id == versions[1].id
 
     async def test_update_flow_not_found(
-        self, approval_flows_service, test_session, sample_tenant
+        self, approval_flows_service, test_session, sample_tenant, minimal_valid_schema
     ):
         """Test updating a non-existent flow."""
         flow_id = uuid.uuid4()
@@ -409,7 +419,7 @@ class TestApprovalFlowsServiceUpdate:
                 session=test_session,
                 tenant_id=sample_tenant.id,
                 flow_id=flow_id,
-                json_schema={"type": "object"},
+                json_schema=minimal_valid_schema,
                 preview_schema={"type": "object"},
                 schema_validation_enabled=True,
                 sla_seconds=3600,
@@ -417,15 +427,17 @@ class TestApprovalFlowsServiceUpdate:
             )
 
     async def test_update_multiple_times(
-        self, approval_flows_service, test_session, sample_tenant
+        self, approval_flows_service, test_session, sample_tenant, minimal_valid_schema
     ):
         """Test updating a flow multiple times creates multiple versions."""
         flow = await approval_flows_service.create_flow(
             session=test_session,
             tenant_id=sample_tenant.id,
             name="Test Flow",
-            json_schema={"type": "object"},
-            preview_schema={"type": "object"},
+            json_schema=minimal_valid_schema,
+            preview_schema={
+                "type": "object",
+            },
             schema_validation_enabled=True,
             sla_seconds=3600,
             reset_on_edit=True,
@@ -433,15 +445,16 @@ class TestApprovalFlowsServiceUpdate:
 
         # Update 3 times
         for i in range(3):
+            is_enabled = i % 2 == 0
             await approval_flows_service.update_flow(
                 session=test_session,
                 tenant_id=sample_tenant.id,
                 flow_id=flow.id,
-                json_schema={"type": "object"},
+                json_schema=minimal_valid_schema if is_enabled else {},
                 preview_schema={"type": "object"},
-                schema_validation_enabled=(i % 2 == 0),
+                schema_validation_enabled=is_enabled,
                 sla_seconds=3600 + (i * 1800),
-                reset_on_edit=(i % 2 == 0),
+                reset_on_edit=is_enabled,
             )
 
         versions = await approval_flows_service.list_flow_versions(
@@ -468,14 +481,14 @@ class TestApprovalFlowsServiceVersions:
         assert versions == []
 
     async def test_list_flow_versions_single(
-        self, approval_flows_service, test_session, sample_tenant
+        self, approval_flows_service, test_session, sample_tenant, minimal_valid_schema
     ):
         """Test listing versions for a new flow."""
         flow = await approval_flows_service.create_flow(
             session=test_session,
             tenant_id=sample_tenant.id,
             name="Test Flow",
-            json_schema={"type": "object"},
+            json_schema=minimal_valid_schema,
             preview_schema={"type": "object"},
             schema_validation_enabled=True,
             sla_seconds=3600,
@@ -490,14 +503,14 @@ class TestApprovalFlowsServiceVersions:
         assert versions[0].version == 1
 
     async def test_list_flow_versions_ordered(
-        self, approval_flows_service, test_session, sample_tenant
+        self, approval_flows_service, test_session, sample_tenant, minimal_valid_schema
     ):
         """Test that versions are returned in order."""
         flow = await approval_flows_service.create_flow(
             session=test_session,
             tenant_id=sample_tenant.id,
             name="Test Flow",
-            json_schema={"type": "object"},
+            json_schema=minimal_valid_schema,
             preview_schema={"type": "object"},
             schema_validation_enabled=True,
             sla_seconds=3600,
@@ -510,7 +523,7 @@ class TestApprovalFlowsServiceVersions:
                 session=test_session,
                 tenant_id=sample_tenant.id,
                 flow_id=flow.id,
-                json_schema={"type": "object"},
+                json_schema=minimal_valid_schema,
                 preview_schema={"type": "object"},
                 schema_validation_enabled=True,
                 sla_seconds=3600,
@@ -533,7 +546,10 @@ class TestApprovalFlowsServiceVersions:
             session=test_session,
             tenant_id=sample_tenant.id,
             name="Test Flow",
-            json_schema={"type": "object", "version": 1},
+            json_schema={
+                "type": "object",
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+            },
             preview_schema={"type": "object"},
             schema_validation_enabled=True,
             sla_seconds=3600,
@@ -563,14 +579,14 @@ class TestApprovalFlowsServiceVersions:
             )
 
     async def test_get_flow_version_wrong_tenant(
-        self, approval_flows_service, test_session, sample_tenant
+        self, approval_flows_service, test_session, sample_tenant, minimal_valid_schema
     ):
         """Test that versions are isolated per tenant."""
         flow = await approval_flows_service.create_flow(
             session=test_session,
             tenant_id=sample_tenant.id,
             name="Test Flow",
-            json_schema={"type": "object"},
+            json_schema=minimal_valid_schema,
             preview_schema={"type": "object"},
             schema_validation_enabled=True,
             sla_seconds=3600,
@@ -610,13 +626,15 @@ class TestApprovalFlowsServiceValidation:
         schema_validation_enabled,
         sla_seconds,
         reset_on_edit,
+        minimal_valid_schema,
     ):
         """Test creating flows with different validation settings."""
+        json_schema = minimal_valid_schema if schema_validation_enabled else {}
         flow = await approval_flows_service.create_flow(
             session=test_session,
             tenant_id=sample_tenant.id,
             name="Test Flow",
-            json_schema={"type": "object"},
+            json_schema=json_schema,
             preview_schema={"type": "object"},
             schema_validation_enabled=schema_validation_enabled,
             sla_seconds=sla_seconds,
@@ -632,7 +650,7 @@ class TestApprovalFlowsServiceValidation:
         assert versions[0].reset_on_edit == reset_on_edit
 
     async def test_sla_seconds_variations(
-        self, approval_flows_service, test_session, sample_tenant
+        self, approval_flows_service, test_session, sample_tenant, minimal_valid_schema
     ):
         """Test flows with different SLA values."""
         sla_values = [300, 1800, 3600, 7200, 86400]
@@ -642,7 +660,7 @@ class TestApprovalFlowsServiceValidation:
                 session=test_session,
                 tenant_id=sample_tenant.id,
                 name=f"Flow SLA {sla}",
-                json_schema={"type": "object"},
+                json_schema=minimal_valid_schema,
                 preview_schema={"type": "object"},
                 schema_validation_enabled=True,
                 sla_seconds=sla,
@@ -680,6 +698,7 @@ class TestApprovalFlowsServiceComplexSchemas:
                     },
                 }
             },
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
         }
 
         flow = await approval_flows_service.create_flow(
@@ -717,6 +736,7 @@ class TestApprovalFlowsServiceComplexSchemas:
                     },
                 }
             },
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
         }
 
         flow = await approval_flows_service.create_flow(
@@ -750,6 +770,7 @@ class TestApprovalFlowsServiceComplexSchemas:
                     "items": {"type": "string"},
                 },
             },
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
         }
 
         updated_schema = {
@@ -762,6 +783,7 @@ class TestApprovalFlowsServiceComplexSchemas:
                 },
                 "priority": {"type": "integer"},
             },
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
         }
 
         flow = await approval_flows_service.create_flow(

@@ -68,6 +68,14 @@ class GroupMembershipNotFoundError(Exception):
         super().__init__(f"Group membership with ID {membership_id} not found")
 
 
+class InvalidFlowSchemaError(Exception):
+    """Raised when a flow version's JSON schema is invalid."""
+
+    def __init__(self, reason: str):
+        self.reason = reason
+        super().__init__(f"Invalid flow JSON schema: {reason}")
+
+
 class UserAlreadyInGroupError(Exception):
     """Raised when a user is already member of reviewer group."""
 
