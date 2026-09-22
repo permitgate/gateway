@@ -117,19 +117,22 @@ def _walk_schema(
                     f"{path}/patternProperties/{pattern}",
                     config,
                 )
-        elif key in _DEPTH_MAP_KEYS and isinstance(value, dict):
+        elif key in _DEPTH_MAP_KEYS and isinstance(value, dict) or key in _FLAT_MAP_KEYS and isinstance(value, dict):
             for name, subschema in value.items():
                 stats.total_keys += 1
                 _walk_schema(
                     subschema, depth + 1, stats, f"{path}/{key}/{name}", config
                 )
-        elif key in _FLAT_MAP_KEYS and isinstance(value, dict):
-            for name, subschema in value.items():
-                _walk_schema(subschema, depth, stats, f"{path}/{key}/{name}", config)
         elif key in _DEPTH_SINGLE_KEYS:
             _walk_schema(value, depth + 1, stats, f"{path}/{key}", config)
-        elif key in _LIST_ITEM_KEYS and isinstance(value, list) or key in _NO_DEPTH_LIST_KEYS and isinstance(value, list):
+        elif (
+            key in _LIST_ITEM_KEYS
+            and isinstance(value, list)
+            or key in _NO_DEPTH_LIST_KEYS
+            and isinstance(value, list)
+        ):
             for i, item in enumerate(value):
+                stats.total_keys += 1
                 _walk_schema(item, depth + 1, stats, f"{path}/{key}/{i}", config)
         elif key in _NO_DEPTH_SINGLE_KEYS:
             _walk_schema(value, depth + 1, stats, f"{path}/{key}", config)

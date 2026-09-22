@@ -211,7 +211,7 @@ def upgrade() -> None:
         "jsonb_typeof(json_schema) = 'object' "
         "AND octet_length(json_schema::text) <= 65536 "
         "AND (json_schema = '{}'::jsonb "
-        "OR json_schema->>'$schema' = 'https://json-schema.org/draft/2020-12/schema')",
+        "OR COALESCE(json_schema->>'$schema' = 'https://json-schema.org/draft/2020-12/schema', false))",
     )
     op.create_check_constraint(
         "chk_flow_version_schema_toggle_coherence",
