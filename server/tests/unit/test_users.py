@@ -266,6 +266,21 @@ def test_update_user_partial(mock_service, client, sample_user, sample_tenant_id
 
 
 @patch("api.users.service")
+def test_update_user_rejects_null_email(
+    mock_service, client, sample_user, sample_tenant_id
+):
+    """Test updating a user rejects an explicit null email."""
+    payload = {"email": None}
+
+    response = client.put(
+        f"/tenants/{sample_tenant_id}/users/{sample_user.id}", json=payload
+    )
+
+    assert response.status_code == 422
+    mock_service.update_user.assert_not_called()
+
+
+@patch("api.users.service")
 def test_update_user_not_found(mock_service, client, sample_tenant_id):
     """Test updating a non-existent user."""
     user_id = uuid.uuid4()
