@@ -102,7 +102,7 @@ def _walk_schema(
     stats.total_keys += len(schema)
 
     for key, value in schema.items():
-        if key in _BANNED_KEYWORDS or key == "$schema":
+        if key in _BANNED_KEYWORDS or (key == "$schema" and path):
             raise InvalidFlowSchemaError(f"'{key}' is not permitted (at {path or '/'})")
 
         if isinstance(value, list):
