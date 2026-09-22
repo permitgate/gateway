@@ -128,14 +128,11 @@ def _walk_schema(
                 _walk_schema(subschema, depth, stats, f"{path}/{key}/{name}", config)
         elif key in _DEPTH_SINGLE_KEYS:
             _walk_schema(value, depth + 1, stats, f"{path}/{key}", config)
-        elif key in _LIST_ITEM_KEYS and isinstance(value, list):
+        elif key in _LIST_ITEM_KEYS and isinstance(value, list) or key in _NO_DEPTH_LIST_KEYS and isinstance(value, list):
             for i, item in enumerate(value):
                 _walk_schema(item, depth + 1, stats, f"{path}/{key}/{i}", config)
-        elif key in _NO_DEPTH_LIST_KEYS and isinstance(value, list):
-            for i, item in enumerate(value):
-                _walk_schema(item, depth, stats, f"{path}/{key}/{i}", config)
         elif key in _NO_DEPTH_SINGLE_KEYS:
-            _walk_schema(value, depth, stats, f"{path}/{key}", config)
+            _walk_schema(value, depth + 1, stats, f"{path}/{key}", config)
 
 
 def validate_flow_preview_schema(

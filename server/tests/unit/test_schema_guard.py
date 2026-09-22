@@ -197,6 +197,29 @@ class TestSchemaBounds:
                 config,
             )
 
+    def test_depth_exceeded_with_nested_combinators(self):
+        """Schema with deeply nested allOf/anyOf/oneOf chains exceeds depth limit."""
+        config = AppConfig(flow_schema_max_depth=3)
+        schema = {
+            "type": "object",
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "allOf": [
+                {
+                    "anyOf": [
+                        {
+                            "oneOf": [
+                                {
+                                    "properties": {"nested": {"type": "string"}},
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ],
+        }
+        with pytest.raises(InvalidFlowSchemaError, match="exceeds max"):
+            validate_flow_json_schema(schema, config)
+
     def test_keys_exceeded(self):
         """Schema exceeding max keys is rejected."""
         config = AppConfig(flow_schema_max_keys=2)
