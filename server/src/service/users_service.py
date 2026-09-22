@@ -65,6 +65,7 @@ class UsersService:
             await session.commit()
             return User.model_validate(user, from_attributes=True)
         except IntegrityError as e:
+            await session.rollback()
             if "uq_tenant_user_email" in str(e):
                 raise UserExistsError(f"User with email {email} already exists")
             if "uq_tenant_slack_id" in str(e):
@@ -166,6 +167,7 @@ class UsersService:
             await session.refresh(user)
             return User.model_validate(user, from_attributes=True)
         except IntegrityError as e:
+            await session.rollback()
             if "uq_tenant_user_email" in str(e):
                 raise UserExistsError(
                     f"User with email {kwargs['email']} already exists"
@@ -230,6 +232,7 @@ class UsersService:
             )
             await session.flush()
         except IntegrityError:
+            await session.rollback()
             raise ReviewerGroupExistsError(f"Group with name {name} already exists")
         for user_id in user_ids:
             await self._membership_repo.create_group_membership(
@@ -272,6 +275,7 @@ class UsersService:
             await session.commit()
             return GroupMembership.model_validate(membership, from_attributes=True)
         except IntegrityError:
+            await session.rollback()
             raise UserAlreadyInGroupError(
                 f"User {user_id} is already a member of {group_id} group"
             )
