@@ -94,9 +94,17 @@ def _check_pattern(pattern: Any, path: str, config: AppConfig) -> None:
 def _walk_schema(
     schema: Any, depth: int, stats: _Stats, path: str, config: AppConfig
 ) -> None:
-    """Recursively validate schema structure, tracking depth and key count."""
+    """Recursively validate schema structure, tracking depth and key count.
+
+    Enforces depth limit before recursing to prevent resource exhaustion.
+    """
     if not isinstance(schema, dict):
         return
+
+    if depth > config.flow_schema_max_depth:
+        raise InvalidFlowSchemaError(
+            f"schema nesting depth {depth} exceeds max {config.flow_schema_max_depth}"
+        )
 
     stats.max_depth = max(stats.max_depth, depth)
     stats.total_keys += len(schema)
@@ -171,7 +179,14 @@ def validate_flow_preview_schema(
             f"preview_schema must be a dict, got {type(preview_schema).__name__}"
         )
 
-    serialized = json.dumps(preview_schema, separators=(",", ":")).encode("utf-8")
+    try:
+        serialized = json.dumps(
+            preview_schema, separators=(",", ":"), allow_nan=False
+        ).encode("utf-8")
+    except (TypeError, ValueError) as exc:
+        raise InvalidFlowSchemaError(
+            f"preview_schema contains non-JSON-serializable values: {exc}"
+        ) from exc
     if len(serialized) > config.flow_schema_max_size_bytes:
         raise InvalidFlowSchemaError(
             f"preview_schema size {len(serialized)} exceeds max {config.flow_schema_max_size_bytes}"
@@ -207,10 +222,25 @@ def validate_flow_json_schema(
             f'$schema must be "{_ALLOWED_SCHEMA_DIALECT}", got {json_schema.get("$schema")}'
         )
 
-    serialized = json.dumps(json_schema, separators=(",", ":")).encode("utf-8")
+    try:
+        serialized = json.dumps(
+            json_schema, separators=(",", ":"), allow_nan=False
+        ).encode("utf-8")
+    except (TypeError, ValueError) as exc:
+        raise InvalidFlowSchemaError(
+            f"json_schema contains non-JSON-serializable values: {exc}"
+        ) from exc
     if len(serialized) > config.flow_schema_max_size_bytes:
         raise InvalidFlowSchemaError(
             f"json_schema size {len(serialized)} exceeds max {config.flow_schema_max_size_bytes}"
+        )
+
+    stats = _Stats()
+    _walk_schema(json_schema, 0, stats, "", config)
+
+    if stats.total_keys > config.flow_schema_max_keys:
+        raise InvalidFlowSchemaError(
+            f"schema total keys {stats.total_keys} exceeds max {config.flow_schema_max_keys}"
         )
 
     try:
@@ -228,16 +258,3 @@ def validate_flow_json_schema(
         RE2Draft202012Validator(json_schema)
     except Exception as exc:
         raise InvalidFlowSchemaError(f"schema compilation failed: {exc}") from exc
-
-    stats = _Stats()
-    _walk_schema(json_schema, 0, stats, "", config)
-
-    if stats.max_depth > config.flow_schema_max_depth:
-        raise InvalidFlowSchemaError(
-            f"schema nesting depth {stats.max_depth} exceeds max {config.flow_schema_max_depth}"
-        )
-
-    if stats.total_keys > config.flow_schema_max_keys:
-        raise InvalidFlowSchemaError(
-            f"schema total keys {stats.total_keys} exceeds max {config.flow_schema_max_keys}"
-        )

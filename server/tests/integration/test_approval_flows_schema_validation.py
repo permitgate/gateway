@@ -157,3 +157,76 @@ class TestApprovalFlowsServiceSchemaValidation:
             reset_on_edit=True,
         )
         assert flow.id is not None
+
+    async def test_create_flow_database_size_constraint_error_handled(
+        self, approval_flows_service, test_session, sample_tenant, monkeypatch
+    ):
+        """Database IntegrityError for schema size constraint is caught and converted to InvalidFlowSchemaError."""
+
+        from sqlalchemy.exc import IntegrityError
+
+        # Mock the repository to raise IntegrityError with the schema size constraint
+        original_create_flow_version = (
+            approval_flows_service._version_repo.create_flow_version
+        )
+
+        call_count = [0]
+
+        async def mock_create_flow_version(*args, **kwargs):
+            call_count[0] += 1
+            if call_count[0] == 1:
+                return await original_create_flow_version(*args, **kwargs)
+
+        monkeypatch.setattr(
+            approval_flows_service._version_repo,
+            "create_flow_version",
+            mock_create_flow_version,
+        )
+
+        # Create a flow with schema that would pass service-side validation
+        flow = await approval_flows_service.create_flow(
+            session=test_session,
+            tenant_id=sample_tenant.id,
+            name="Good Flow",
+            json_schema={
+                "type": "object",
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "properties": {"name": {"type": "string"}},
+            },
+            preview_schema={"type": "object"},
+            schema_validation_enabled=True,
+            sla_seconds=3600,
+            reset_on_edit=True,
+        )
+
+        # Now update with mock that raises IntegrityError
+        async def mock_create_flow_version_update(*args, **kwargs):
+            exc = IntegrityError(
+                'new row for relation "flow_versions" violates check constraint "chk_flow_version_json_schema_shape"',
+                None,
+                None,
+            )
+            raise exc
+
+        monkeypatch.setattr(
+            approval_flows_service._version_repo,
+            "create_flow_version",
+            mock_create_flow_version_update,
+        )
+
+        # Should convert IntegrityError to InvalidFlowSchemaError
+        with pytest.raises(InvalidFlowSchemaError, match="exceeds maximum size"):
+            await approval_flows_service.update_flow(
+                session=test_session,
+                tenant_id=sample_tenant.id,
+                flow_id=flow.id,
+                json_schema={
+                    "type": "object",
+                    "$schema": "https://json-schema.org/draft/2020-12/schema",
+                    "properties": {"name": {"type": "string"}},
+                },
+                preview_schema={"type": "object"},
+                schema_validation_enabled=True,
+                sla_seconds=3600,
+                reset_on_edit=True,
+            )

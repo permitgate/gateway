@@ -3,6 +3,7 @@
 # This program is licensed under the GNU Affero General Public License v3.0 only.
 # See LICENSE or go to <https://www.gnu.org/licenses/agpl.txt> for full license details.
 
+import math
 import sys
 from pathlib import Path
 
@@ -12,7 +13,10 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
 from config import AppConfig
 from service.exceptions import InvalidFlowSchemaError
-from service.schema_guard import validate_flow_json_schema
+from service.schema_guard import (
+    validate_flow_json_schema,
+    validate_flow_preview_schema,
+)
 
 
 class TestSchemaGuardBasics:
@@ -266,5 +270,66 @@ class TestSchemaMalformed:
                     "$schema": "https://json-schema.org/draft/2020-12/schema",
                     "required": "name",
                 },
+                config,
+            )
+
+
+class TestSchemaNonSerializable:
+    """Tests for non-JSON-serializable values (NaN, Infinity, etc.)."""
+
+    def test_json_schema_with_nan_rejected(self):
+        """JSON schema containing NaN is rejected."""
+        config = AppConfig()
+        with pytest.raises(InvalidFlowSchemaError, match="non-JSON-serializable"):
+            validate_flow_json_schema(
+                {
+                    "type": "object",
+                    "$schema": "https://json-schema.org/draft/2020-12/schema",
+                    "properties": {"value": {"type": "number", "default": math.nan}},
+                },
+                config,
+            )
+
+    def test_json_schema_with_infinity_rejected(self):
+        """JSON schema containing Infinity is rejected."""
+        config = AppConfig()
+        with pytest.raises(InvalidFlowSchemaError, match="non-JSON-serializable"):
+            validate_flow_json_schema(
+                {
+                    "type": "object",
+                    "$schema": "https://json-schema.org/draft/2020-12/schema",
+                    "properties": {"value": {"type": "number", "maximum": math.inf}},
+                },
+                config,
+            )
+
+    def test_json_schema_with_negative_infinity_rejected(self):
+        """JSON schema containing negative Infinity is rejected."""
+        config = AppConfig()
+        with pytest.raises(InvalidFlowSchemaError, match="non-JSON-serializable"):
+            validate_flow_json_schema(
+                {
+                    "type": "object",
+                    "$schema": "https://json-schema.org/draft/2020-12/schema",
+                    "properties": {"value": {"type": "number", "minimum": -math.inf}},
+                },
+                config,
+            )
+
+    def test_preview_schema_with_nan_rejected(self):
+        """Preview schema containing NaN is rejected."""
+        config = AppConfig()
+        with pytest.raises(InvalidFlowSchemaError, match="non-JSON-serializable"):
+            validate_flow_preview_schema(
+                {"fields": [{"name": "value", "default": math.nan}]},
+                config,
+            )
+
+    def test_preview_schema_with_infinity_rejected(self):
+        """Preview schema containing Infinity is rejected."""
+        config = AppConfig()
+        with pytest.raises(InvalidFlowSchemaError, match="non-JSON-serializable"):
+            validate_flow_preview_schema(
+                {"fields": [{"name": "value", "max": math.inf}]},
                 config,
             )
