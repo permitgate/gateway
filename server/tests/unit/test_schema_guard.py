@@ -333,3 +333,35 @@ class TestSchemaNonSerializable:
                 {"fields": [{"name": "value", "max": math.inf}]},
                 config,
             )
+
+    def test_preview_schema_malformed_type_rejected(self):
+        """Malformed preview schema with invalid type field is rejected."""
+        config = AppConfig()
+        with pytest.raises(InvalidFlowSchemaError, match="not a valid JSON Schema"):
+            validate_flow_preview_schema(
+                {"type": 7},
+                config,
+            )
+
+    def test_preview_schema_malformed_required_rejected(self):
+        """Malformed preview schema with required as string instead of array is rejected."""
+        config = AppConfig()
+        with pytest.raises(InvalidFlowSchemaError, match="not a valid JSON Schema"):
+            validate_flow_preview_schema(
+                {"type": "object", "required": "name"},
+                config,
+            )
+
+    def test_preview_schema_valid_passes(self):
+        """Valid preview schema passes."""
+        config = AppConfig()
+        validate_flow_preview_schema(
+            {
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string"},
+                    "age": {"type": "number"},
+                },
+            },
+            config,
+        )
