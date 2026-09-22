@@ -277,7 +277,10 @@ def test_update_user_rejects_null_email(
     )
 
     assert response.status_code == 422
-    assert "email may be omitted, but cannot be null" in response.json()["detail"][0]["msg"]
+    assert any(
+        "email may be omitted, but cannot be null" in error["msg"]
+        for error in response.json()["detail"]
+    )
     mock_service.update_user.assert_not_called()
 
 
