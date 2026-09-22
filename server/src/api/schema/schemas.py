@@ -36,7 +36,7 @@ class UserUpdate(BaseModel):
     def validate_email_not_null(cls, data):
         """Reject explicit null email while allowing omission for partial updates."""
         if isinstance(data, dict) and "email" in data and data["email"] is None:
-            msg = "Input should be a valid string"
+            msg = "email may be omitted, but cannot be null"
             raise ValueError(msg)
         return data
 
