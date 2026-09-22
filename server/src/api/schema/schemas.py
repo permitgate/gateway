@@ -5,6 +5,7 @@
 
 import uuid
 from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, model_validator
 
@@ -33,7 +34,7 @@ class UserUpdate(BaseModel):
 
     @model_validator(mode="before")
     @classmethod
-    def validate_email_not_null(cls, data):
+    def validate_email_not_null(cls, data: Any) -> Any:
         """Reject explicit null email while allowing omission for partial updates."""
         if isinstance(data, dict) and "email" in data and data["email"] is None:
             msg = "email may be omitted, but cannot be null"
