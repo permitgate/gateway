@@ -5,8 +5,9 @@
 
 import uuid
 from datetime import datetime
+from typing import Any
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 from model import UserRole
 
@@ -30,6 +31,15 @@ class UserUpdate(BaseModel):
     teams_user_id: str | None = None
     telegram_user_id: str | None = None
     is_active: bool | None = None
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def validate_email_not_null(cls, value: Any) -> Any:
+        """Reject explicit null email while allowing omission for partial updates."""
+        if value is None:
+            msg = "email may be omitted, but cannot be null"
+            raise ValueError(msg)
+        return value
 
 
 class UserResponse(BaseModel):
