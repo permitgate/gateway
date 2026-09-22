@@ -13,9 +13,9 @@ class AppConfig(BaseSettings):
 
     host: str = Field(default="0.0.0.0", alias="GATEWAY_HOST")
     port: int = Field(default=8080, alias="GATEWAY_PORT")
-    flow_schema_max_size_bytes: int = Field(
-        default=65536, alias="FLOW_SCHEMA_MAX_SIZE_BYTES"
-    )
+flow_schema_max_size_bytes: int = Field(
+    default=65536, alias="FLOW_SCHEMA_MAX_SIZE_BYTES", le=65536
+)
     flow_schema_max_depth: int = Field(default=5, alias="FLOW_SCHEMA_MAX_DEPTH")
     flow_schema_max_keys: int = Field(default=100, alias="FLOW_SCHEMA_MAX_KEYS")
     flow_schema_max_pattern_length: int = Field(
