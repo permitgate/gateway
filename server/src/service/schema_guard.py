@@ -16,6 +16,7 @@ import json
 from typing import Any
 
 import re2
+from jsonschema import Draft202012Validator, validators
 
 from config import AppConfig
 from service.exceptions import InvalidFlowSchemaError
@@ -51,6 +52,19 @@ _NO_DEPTH_SINGLE_KEYS = {
     "contains",
     "propertyNames",
 }
+
+
+def _re2_pattern_validator(validator, pattern, instance, schema):
+    """Validate that a string instance matches the RE2 pattern."""
+    if not isinstance(instance, str):
+        return
+    try:
+        if re2.search(pattern, instance):
+            return
+    except re2.error as exc:
+        yield f"pattern {pattern!r} failed RE2 compilation: {exc}"
+        return
+    yield f"{instance!r} does not match RE2 pattern {pattern!r}"
 
 
 class _Stats:
@@ -191,16 +205,18 @@ def validate_flow_json_schema(
         )
 
     try:
-        from jsonschema import Draft202012Validator
-
         Draft202012Validator.check_schema(json_schema)
     except Exception as exc:
         raise InvalidFlowSchemaError(f"schema validation failed: {exc}") from exc
 
     try:
-        from jsonschema import Draft202012Validator
-
-        Draft202012Validator(json_schema)
+        all_validators = dict(Draft202012Validator.VALIDATORS)
+        all_validators["pattern"] = _re2_pattern_validator
+        RE2Draft202012Validator = validators.create(
+            meta_schema=Draft202012Validator.META_SCHEMA,
+            validators=all_validators,
+        )
+        RE2Draft202012Validator(json_schema)
     except Exception as exc:
         raise InvalidFlowSchemaError(f"schema compilation failed: {exc}") from exc
 
