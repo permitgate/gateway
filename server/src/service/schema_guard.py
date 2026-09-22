@@ -32,8 +32,14 @@ _BANNED_KEYWORDS = {
     "$recursiveAnchor",
 }
 
-_DEPTH_MAP_KEYS = {"properties"}
-_DEPTH_SINGLE_KEYS = {"items", "additionalProperties"}
+_DEPTH_MAP_KEYS = {"properties", "dependentSchemas"}
+_DEPTH_SINGLE_KEYS = {
+    "items",
+    "additionalProperties",
+    "unevaluatedItems",
+    "unevaluatedProperties",
+    "contentSchema",
+}
 _LIST_ITEM_KEYS = {"prefixItems"}
 _FLAT_MAP_KEYS = {"$defs", "definitions"}
 _NO_DEPTH_LIST_KEYS = {"allOf", "anyOf", "oneOf"}
