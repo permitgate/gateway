@@ -200,7 +200,7 @@ def upgrade() -> None:
             name="chk_flow_amount_paths_bound",
         ),
         sa.CheckConstraint(
-            "amount_path IS NULL OR amount_path = '' OR amount_path ~ '^(/([^/~]|~[01])*)+$',
+            "amount_path IS NULL OR amount_path = '' OR amount_path ~ '^(/([^/~]|~[01])*)+$'",
             name="chk_flow_amount_path_pointer",
         ),
         sa.CheckConstraint(
