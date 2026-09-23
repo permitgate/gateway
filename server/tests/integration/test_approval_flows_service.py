@@ -861,11 +861,11 @@ class TestApprovalFlowsServiceValidation:
                 json_schema=minimal_valid_schema,
                 preview_schema={"type": "object"},
                 schema_validation_enabled=True,
-            amount_path=None,
-            currency_path=None,
-            high_risk=False,
-            currency_exchange_rates={},
-            sla_seconds=sla,
+                amount_path=None,
+                currency_path=None,
+                high_risk=False,
+                currency_exchange_rates={},
+                sla_seconds=sla,
                 reset_on_edit=True,
             )
 
