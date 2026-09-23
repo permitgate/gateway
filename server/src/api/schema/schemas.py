@@ -99,6 +99,10 @@ class ApprovalFlowVersionResponse(BaseModel):
     json_schema: dict
     preview_schema: dict
     schema_validation_enabled: bool
+    amount_path: str | None
+    currency_path: str | None
+    high_risk: bool
+    currency_exchange_rates: dict
     sla_seconds: int
     reset_on_edit: bool
     created_at: datetime
