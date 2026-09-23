@@ -46,6 +46,10 @@ class TestApprovalFlowsServiceSchemaValidation:
                 json_schema={"type": "object"},
                 preview_schema={"type": "object"},
                 schema_validation_enabled=True,
+                amount_path=None,
+                currency_path=None,
+                high_risk=False,
+                currency_exchange_rates={},
                 sla_seconds=3600,
                 reset_on_edit=True,
             )
@@ -66,6 +70,10 @@ class TestApprovalFlowsServiceSchemaValidation:
                 },
                 preview_schema={"type": "object"},
                 schema_validation_enabled=True,
+                amount_path=None,
+                currency_path=None,
+                high_risk=False,
+                currency_exchange_rates={},
                 sla_seconds=3600,
                 reset_on_edit=True,
             )
@@ -85,6 +93,10 @@ class TestApprovalFlowsServiceSchemaValidation:
                 json_schema={},
                 preview_schema={"type": "object"},
                 schema_validation_enabled=True,
+                amount_path=None,
+                currency_path=None,
+                high_risk=False,
+                currency_exchange_rates={},
                 sla_seconds=3600,
                 reset_on_edit=True,
             )
@@ -107,6 +119,10 @@ class TestApprovalFlowsServiceSchemaValidation:
                 },
                 preview_schema={"type": "object"},
                 schema_validation_enabled=False,
+                amount_path=None,
+                currency_path=None,
+                high_risk=False,
+                currency_exchange_rates={},
                 sla_seconds=3600,
                 reset_on_edit=True,
             )
@@ -122,6 +138,10 @@ class TestApprovalFlowsServiceSchemaValidation:
             json_schema={},
             preview_schema={"type": "object"},
             schema_validation_enabled=False,
+            amount_path=None,
+            currency_path=None,
+            high_risk=False,
+            currency_exchange_rates={},
             sla_seconds=3600,
             reset_on_edit=True,
         )
@@ -134,6 +154,10 @@ class TestApprovalFlowsServiceSchemaValidation:
                 json_schema={"type": "object"},
                 preview_schema={"type": "object"},
                 schema_validation_enabled=True,
+                amount_path=None,
+                currency_path=None,
+                high_risk=False,
+                currency_exchange_rates={},
                 sla_seconds=3600,
                 reset_on_edit=True,
             )
@@ -153,6 +177,10 @@ class TestApprovalFlowsServiceSchemaValidation:
             },
             preview_schema={"type": "object"},
             schema_validation_enabled=True,
+            amount_path=None,
+            currency_path=None,
+            high_risk=False,
+            currency_exchange_rates={},
             sla_seconds=3600,
             reset_on_edit=True,
         )
@@ -195,6 +223,10 @@ class TestApprovalFlowsServiceSchemaValidation:
             },
             preview_schema={"type": "object"},
             schema_validation_enabled=True,
+            amount_path=None,
+            currency_path=None,
+            high_risk=False,
+            currency_exchange_rates={},
             sla_seconds=3600,
             reset_on_edit=True,
         )
@@ -227,6 +259,94 @@ class TestApprovalFlowsServiceSchemaValidation:
                 },
                 preview_schema={"type": "object"},
                 schema_validation_enabled=True,
+                amount_path=None,
+                currency_path=None,
+                high_risk=False,
+                currency_exchange_rates={},
                 sla_seconds=3600,
                 reset_on_edit=True,
             )
+
+    async def test_create_flow_with_financial_fields(
+        self, approval_flows_service, test_session, sample_tenant
+    ):
+        """Test creating flow with financial fields."""
+        flow = await approval_flows_service.create_flow(
+            session=test_session,
+            tenant_id=sample_tenant.id,
+            name="Financial Flow",
+            json_schema={
+                "type": "object",
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "properties": {"amount": {"type": "number"}},
+            },
+            preview_schema={"type": "object"},
+            schema_validation_enabled=True,
+            amount_path="/request/amount",
+            currency_path="/request/currency",
+            high_risk=True,
+            currency_exchange_rates={"USD": 1.0, "EUR": 0.92, "GBP": 0.80},
+            sla_seconds=3600,
+            reset_on_edit=True,
+        )
+
+        versions = await approval_flows_service.list_flow_versions(
+            test_session, sample_tenant.id, flow.id
+        )
+
+        assert versions[0].amount_path == "/request/amount"
+        assert versions[0].currency_path == "/request/currency"
+        assert versions[0].high_risk is True
+        assert versions[0].currency_exchange_rates == {
+            "USD": 1.0,
+            "EUR": 0.92,
+            "GBP": 0.80,
+        }
+
+    async def test_update_flow_financial_fields(
+        self, approval_flows_service, test_session, sample_tenant
+    ):
+        """Test updating flow financial fields."""
+        flow = await approval_flows_service.create_flow(
+            session=test_session,
+            tenant_id=sample_tenant.id,
+            name="Financial Flow",
+            json_schema={},
+            preview_schema={"type": "object"},
+            schema_validation_enabled=False,
+            amount_path=None,
+            currency_path=None,
+            high_risk=False,
+            currency_exchange_rates={},
+            sla_seconds=3600,
+            reset_on_edit=True,
+        )
+
+        await approval_flows_service.update_flow(
+            session=test_session,
+            tenant_id=sample_tenant.id,
+            flow_id=flow.id,
+            json_schema={
+                "type": "object",
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "properties": {"amount": {"type": "number"}},
+            },
+            preview_schema={"type": "object"},
+            schema_validation_enabled=True,
+            amount_path="/amount",
+            currency_path="/currency",
+            high_risk=True,
+            currency_exchange_rates={"JPY": 110.0, "CNY": 6.5},
+            sla_seconds=7200,
+            reset_on_edit=False,
+        )
+
+        versions = await approval_flows_service.list_flow_versions(
+            test_session, sample_tenant.id, flow.id
+        )
+
+        assert len(versions) == 2
+        assert versions[1].amount_path == "/amount"
+        assert versions[1].currency_path == "/currency"
+        assert versions[1].high_risk is True
+        assert versions[1].currency_exchange_rates == {"JPY": 110.0, "CNY": 6.5}

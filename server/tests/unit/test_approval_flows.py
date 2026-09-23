@@ -75,6 +75,10 @@ def sample_flow_version(sample_tenant_id, sample_flow_id, sample_version_id):
         json_schema={"type": "object", "properties": {"name": {"type": "string"}}},
         preview_schema={"type": "object"},
         schema_validation_enabled=True,
+        amount_path="/amount",
+        currency_path="/currency",
+        high_risk=False,
+        currency_exchange_rates={},
         sla_seconds=3600,
         reset_on_edit=True,
         created_at=datetime.now(tz=UTC),
@@ -91,6 +95,10 @@ def test_create_flow(mock_service, client, sample_approval_flow, sample_tenant_i
         "json_schema": {"type": "object"},
         "preview_schema": {"type": "object"},
         "schema_validation_enabled": True,
+        "amount_path": "/amount",
+        "currency_path": "/currency",
+        "high_risk": True,
+        "currency_exchange_rates": {},
         "sla_seconds": 3600,
         "reset_on_edit": True,
     }
@@ -245,6 +253,10 @@ def test_create_flow_multiple_versions(mock_service, client, sample_tenant_id):
         "json_schema": {"type": "object"},
         "preview_schema": {"type": "object"},
         "schema_validation_enabled": True,
+        "amount_path": "/amount",
+        "currency_path": "/currency",
+        "high_risk": True,
+        "currency_exchange_rates": {},
         "sla_seconds": 3600,
         "reset_on_edit": True,
     }
@@ -316,6 +328,10 @@ def test_update_flow(mock_service, client, sample_approval_flow, sample_tenant_i
         "json_schema": {"type": "object", "properties": {"new": {"type": "string"}}},
         "preview_schema": {"type": "object"},
         "schema_validation_enabled": False,
+        "amount_path": "/amount",
+        "currency_path": "/currency",
+        "high_risk": True,
+        "currency_exchange_rates": {},
         "sla_seconds": 7200,
         "reset_on_edit": False,
     }
@@ -342,6 +358,10 @@ def test_update_flow_not_found(mock_service, client, sample_tenant_id):
         "json_schema": {"type": "object"},
         "preview_schema": {"type": "object"},
         "schema_validation_enabled": True,
+        "amount_path": "/amount",
+        "currency_path": "/currency",
+        "high_risk": True,
+        "currency_exchange_rates": {},
         "sla_seconds": 3600,
         "reset_on_edit": True,
     }
@@ -366,6 +386,10 @@ def test_update_flow_no_active_version(mock_service, client, sample_tenant_id):
         "json_schema": {"type": "object"},
         "preview_schema": {"type": "object"},
         "schema_validation_enabled": True,
+        "amount_path": "/amount",
+        "currency_path": "/currency",
+        "high_risk": True,
+        "currency_exchange_rates": {},
         "sla_seconds": 3600,
         "reset_on_edit": True,
     }
@@ -393,6 +417,10 @@ def test_update_flow_active_version_not_found(mock_service, client, sample_tenan
         "json_schema": {"type": "object"},
         "preview_schema": {"type": "object"},
         "schema_validation_enabled": True,
+        "amount_path": "/amount",
+        "currency_path": "/currency",
+        "high_risk": True,
+        "currency_exchange_rates": {},
         "sla_seconds": 3600,
         "reset_on_edit": True,
     }
@@ -404,3 +432,77 @@ def test_update_flow_active_version_not_found(mock_service, client, sample_tenan
     assert response.status_code == 404
     data = response.json()
     assert "Active flow version not found" in data["detail"]
+
+
+@patch("api.approval_flows.service")
+def test_create_flow_with_financial_fields(
+    mock_service, client, sample_approval_flow, sample_tenant_id
+):
+    """Test creating a flow with financial fields."""
+    mock_service.create_flow = AsyncMock(return_value=sample_approval_flow)
+
+    payload = {
+        "name": "Financial Flow",
+        "json_schema": {"type": "object", "properties": {"amount": {"type": "number"}}},
+        "preview_schema": {"type": "object"},
+        "schema_validation_enabled": True,
+        "amount_path": "/amount",
+        "currency_path": "/currency",
+        "high_risk": True,
+        "currency_exchange_rates": {"USD": 1.0, "EUR": 0.92},
+        "sla_seconds": 3600,
+        "reset_on_edit": True,
+    }
+
+    response = client.post(f"/tenants/{sample_tenant_id}/approval-flows/", json=payload)
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["id"] == str(sample_approval_flow.id)
+    mock_service.create_flow.assert_called_once()
+    call_args = mock_service.create_flow.call_args
+    assert call_args.kwargs["amount_path"] == "/amount"
+    assert call_args.kwargs["currency_path"] == "/currency"
+    assert call_args.kwargs["high_risk"] is True
+    assert call_args.kwargs["currency_exchange_rates"] == {"USD": 1.0, "EUR": 0.92}
+
+
+@patch("api.approval_flows.service")
+def test_update_flow_financial_fields(
+    mock_service, client, sample_approval_flow, sample_tenant_id
+):
+    """Test updating a flow with financial fields."""
+    mock_service.update_flow = AsyncMock(return_value=sample_approval_flow)
+
+    payload = {
+        "json_schema": {"type": "object", "properties": {"amount": {"type": "number"}}},
+        "preview_schema": {"type": "object"},
+        "schema_validation_enabled": True,
+        "amount_path": "/request/amount",
+        "currency_path": "/request/currency",
+        "high_risk": True,
+        "currency_exchange_rates": {"USD": 1.0, "EUR": 0.92, "GBP": 0.80},
+        "sla_seconds": 7200,
+        "reset_on_edit": False,
+    }
+
+    response = client.put(
+        f"/tenants/{sample_tenant_id}/approval-flows/{sample_approval_flow.id}",
+        json=payload,
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["id"] == str(sample_approval_flow.id)
+    mock_service.update_flow.assert_called_once()
+    call_args = mock_service.update_flow.call_args
+    assert call_args.kwargs["amount_path"] == "/request/amount"
+    assert call_args.kwargs["currency_path"] == "/request/currency"
+    assert call_args.kwargs["high_risk"] is True
+    assert call_args.kwargs["currency_exchange_rates"] == {
+        "USD": 1.0,
+        "EUR": 0.92,
+        "GBP": 0.80,
+    }
+    assert call_args.kwargs["sla_seconds"] == 7200
+    assert call_args.kwargs["reset_on_edit"] is False

@@ -23,6 +23,10 @@ class FlowVersionsRepository:
         json_schema: dict,
         preview_schema: dict,
         schema_validation_enabled: bool,
+        amount_path: str | None,
+        currency_path: str | None,
+        high_risk: bool,
+        currency_exchange_rates: dict,
         sla_seconds: int,
         reset_on_edit: bool,
     ) -> FlowVersion:
@@ -36,6 +40,10 @@ class FlowVersionsRepository:
             json_schema: JSON schema for validating flow payloads
             preview_schema: JSON schema for previewing and rendering the flow in the UI
             schema_validation_enabled: Whether to enforce JSON schema validation on incoming tasks
+            amount_path: RFC 6901 JSON Pointer specifying where monetary amounts reside in payload
+            currency_path: RFC 6901 JSON Pointer specifying where monetary currency codes reside in payload
+            high_risk: Flag indicating high-risk flows where financial steps MUST explicitly specify non-NULL amount limits
+            currency_exchange_rates: Static rate conversion map for multi-currency evaluations
             sla_seconds: Service level agreement timeout in seconds for approval decisions
             reset_on_edit: Whether to reset the flow state when the artifact is edited
 
@@ -50,6 +58,10 @@ class FlowVersionsRepository:
             json_schema=json_schema,
             preview_schema=preview_schema,
             schema_validation_enabled=schema_validation_enabled,
+            amount_path=amount_path,
+            currency_path=currency_path,
+            high_risk=high_risk,
+            currency_exchange_rates=currency_exchange_rates,
             sla_seconds=sla_seconds,
             reset_on_edit=reset_on_edit,
         )
