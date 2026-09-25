@@ -9,7 +9,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
-from model import UserRole
+from model import ApprovalStepInput, UserRole
 
 
 class UserCreate(BaseModel):
@@ -69,6 +69,7 @@ class ApprovalFlowUpdate(BaseModel):
     currency_exchange_rates: dict = Field(default_factory=dict)
     sla_seconds: int = Field(gt=0)
     reset_on_edit: bool
+    steps: list[ApprovalStepInput] = Field(min_length=1)
 
 
 class ApprovalFlowCreate(ApprovalFlowUpdate):
@@ -105,6 +106,25 @@ class ApprovalFlowVersionResponse(BaseModel):
     currency_exchange_rates: dict
     sla_seconds: int
     reset_on_edit: bool
+    created_at: datetime
+
+
+class ApprovalStepResponse(BaseModel):
+    """Schema for approval step response."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    flow_version_id: uuid.UUID
+    step_order: int
+    name: str
+    target_group_id: uuid.UUID | None
+    target_user_id: uuid.UUID | None
+    editable_paths: list[str]
+    amount_limit_minor_units: int | None
+    currency: str | None
+    required_role: UserRole | None
+    action_type: str | None
     created_at: datetime
 
 

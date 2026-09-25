@@ -210,12 +210,105 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
     )
 
+    op.create_table(
+        "approval_steps",
+        sa.Column("id", sa.UUID(), nullable=False, default=uuid.uuid4),
+        sa.Column("tenant_id", sa.UUID(), nullable=False),
+        sa.Column("flow_version_id", sa.UUID(), nullable=False),
+        sa.Column("step_order", sa.Integer(), nullable=False),
+        sa.Column("name", sa.String(255), nullable=False),
+        sa.Column("target_group_id", sa.UUID(), nullable=True),
+        sa.Column("target_user_id", sa.UUID(), nullable=True),
+        sa.Column(
+            "editable_paths",
+            JSONB(),
+            nullable=False,
+            server_default=sa.text("'[]'::jsonb"),
+        ),
+        sa.Column("amount_limit_minor_units", sa.BigInteger(), nullable=True),
+        sa.Column("currency", sa.String(3), nullable=True),
+        sa.Column("required_role", sa.String(50), nullable=True),
+        sa.Column("action_type", sa.String(100), nullable=True),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.func.now(),
+            nullable=False,
+        ),
+        sa.ForeignKeyConstraint(
+            ["tenant_id"],
+            ["tenants.id"],
+            ondelete="CASCADE",
+            name="fk_approval_steps_tenant",
+        ),
+        sa.ForeignKeyConstraint(
+            ["flow_version_id", "tenant_id"],
+            ["flow_versions.id", "flow_versions.tenant_id"],
+            ondelete="CASCADE",
+            name="fk_approval_steps_flow_version",
+        ),
+        sa.ForeignKeyConstraint(
+            ["target_group_id", "tenant_id"],
+            ["reviewer_groups.id", "reviewer_groups.tenant_id"],
+            ondelete="RESTRICT",
+            name="fk_approval_steps_target_group",
+        ),
+        sa.ForeignKeyConstraint(
+            ["target_user_id", "tenant_id"],
+            ["users.id", "users.tenant_id"],
+            ondelete="RESTRICT",
+            name="fk_approval_steps_target_user",
+        ),
+        sa.UniqueConstraint(
+            "flow_version_id", "step_order", name="uq_flow_version_step"
+        ),
+        sa.UniqueConstraint("id", "tenant_id", name="uq_tenant_step_id"),
+        sa.CheckConstraint("step_order > 0", name="chk_positive_step"),
+        sa.CheckConstraint(
+            "(target_group_id IS NOT NULL AND target_user_id IS NULL) OR "
+            "(target_group_id IS NULL AND target_user_id IS NOT NULL)",
+            name="chk_exactly_one_approval_target",
+        ),
+        sa.CheckConstraint(
+            "amount_limit_minor_units > 0", name="chk_step_positive_amount"
+        ),
+        sa.CheckConstraint("currency ~ '^[A-Z]{3}$'", name="chk_step_currency_format"),
+        sa.CheckConstraint(
+            "required_role IN ('administrator', 'reviewer')",
+            name="chk_step_required_role",
+        ),
+        sa.CheckConstraint(
+            "(amount_limit_minor_units IS NULL AND currency IS NULL) OR "
+            "(amount_limit_minor_units IS NOT NULL AND currency IS NOT NULL)",
+            name="chk_step_amount_currency_bound",
+        ),
+        sa.PrimaryKeyConstraint("id"),
+    )
+
     op.create_index("ix_users_id_tenant_id", "users", ["id", "tenant_id"], unique=True)
     op.create_index(
         "ix_reviewer_groups_id_tenant_id",
         "reviewer_groups",
         ["id", "tenant_id"],
         unique=True,
+    )
+    op.create_index(
+        "idx_approval_steps_group",
+        "approval_steps",
+        ["target_group_id"],
+        postgresql_where=sa.text("target_group_id IS NOT NULL"),
+    )
+    op.create_index(
+        "idx_approval_steps_user",
+        "approval_steps",
+        ["target_user_id"],
+        postgresql_where=sa.text("target_user_id IS NOT NULL"),
+    )
+    op.create_index(
+        "idx_approval_steps_editable_paths",
+        "approval_steps",
+        ["editable_paths"],
+        postgresql_using="gin",
     )
 
     op.create_foreign_key(
@@ -242,6 +335,10 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    op.drop_index("idx_approval_steps_editable_paths", table_name="approval_steps")
+    op.drop_index("idx_approval_steps_user", table_name="approval_steps")
+    op.drop_index("idx_approval_steps_group", table_name="approval_steps")
+    op.drop_table("approval_steps")
     op.drop_constraint(
         "chk_flow_version_schema_toggle_coherence",
         "flow_versions",

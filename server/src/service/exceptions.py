@@ -81,3 +81,19 @@ class UserAlreadyInGroupError(Exception):
 
     def __init__(self, message: str):
         super().__init__(message)
+
+
+class InvalidApprovalStepError(Exception):
+    """Raised when an approval step's configuration is invalid."""
+
+    def __init__(self, reason: str):
+        self.reason = reason
+        super().__init__(f"Invalid approval step: {reason}")
+
+
+class ApprovalStepNotFoundError(Exception):
+    """Raised when an approval step is not found."""
+
+    def __init__(self, step_id: uuid.UUID):
+        self.step_id = step_id
+        super().__init__(f"Approval step with ID {step_id} not found")

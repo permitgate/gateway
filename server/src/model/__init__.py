@@ -5,6 +5,7 @@
 
 from .approval_flow import ApprovalFlow, ApprovalFlowVersion
 from .approval_state import ApprovalState
+from .approval_step import ApprovalStep, ApprovalStepInput
 from .callback_state import CallbackState
 from .execution_state import ExecutionState
 from .group_membership import GroupMembership
@@ -17,6 +18,8 @@ __all__ = [
     "ApprovalFlow",
     "ApprovalFlowVersion",
     "ApprovalState",
+    "ApprovalStep",
+    "ApprovalStepInput",
     "CallbackState",
     "ExecutionState",
     "GroupMembership",

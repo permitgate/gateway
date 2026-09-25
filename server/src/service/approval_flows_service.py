@@ -10,14 +10,44 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.repo.approval_flows_repo import ApprovalFlowsRepository
 from db.repo.flow_versions_repo import FlowVersionsRepository
-from model import ApprovalFlow, ApprovalFlowVersion
+from model import ApprovalFlow, ApprovalFlowVersion, ApprovalStepInput
+from service.approval_steps_service import ApprovalStepsService
 from service.exceptions import (
     ApprovalFlowNotFoundError,
     FlowVersionNotFoundError,
+    InvalidApprovalStepError,
     InvalidFlowSchemaError,
     NoActiveVersionError,
 )
 from service.schema_guard import validate_flow_json_schema, validate_flow_preview_schema
+
+
+def _validate_step_authority_invariants(
+    amount_path: str | None, high_risk: bool, steps: list[ApprovalStepInput]
+) -> None:
+    """Validate application-layer constraints on approval steps.
+
+    Raises InvalidApprovalStepError if:
+    - Any step has amount_limit_minor_units set while amount_path is None
+    - high_risk is True and any step lacks amount_limit_minor_units/currency
+
+    Args:
+        amount_path: The flow version's amount_path (None if no amounts to check)
+        high_risk: Whether the flow is high-risk (requires amounts on all steps)
+        steps: List of approval steps to validate
+
+    Raises:
+        InvalidApprovalStepError: If any invariant is violated
+    """
+    for step in steps:
+        if step.amount_limit_minor_units is not None and amount_path is None:
+            raise InvalidApprovalStepError(
+                "Step has amount_limit_minor_units but flow has no amount_path"
+            )
+        if high_risk and step.amount_limit_minor_units is None:
+            raise InvalidApprovalStepError(
+                "High-risk flow requires all steps to have amount_limit_minor_units and currency"
+            )
 
 
 class ApprovalFlowsService:
@@ -26,6 +56,7 @@ class ApprovalFlowsService:
     def __init__(self):
         self._repo = ApprovalFlowsRepository()
         self._version_repo = FlowVersionsRepository()
+        self._steps_service = ApprovalStepsService()
 
     async def create_flow(
         self,
@@ -41,6 +72,7 @@ class ApprovalFlowsService:
         currency_exchange_rates: dict,
         sla_seconds: int,
         reset_on_edit: bool,
+        steps: list[ApprovalStepInput] | None = None,
     ) -> ApprovalFlow:
         """Create a new approval flow and commit the transaction.
 
@@ -57,10 +89,12 @@ class ApprovalFlowsService:
             currency_exchange_rates: Static rate conversion map for multi-currency evaluations
             sla_seconds: Service level agreement timeout in seconds for approval decisions
             reset_on_edit: Whether to reset the flow state when the artifact is edited
+            steps: List of approval steps for the initial flow version (default: empty list)
 
         Returns:
             The created ApprovalFlow object
         """
+        steps = steps or []
         if schema_validation_enabled and json_schema == {}:
             raise InvalidFlowSchemaError(
                 "json_schema must not be empty when schema_validation_enabled is true"
@@ -71,6 +105,7 @@ class ApprovalFlowsService:
             )
         validate_flow_json_schema(json_schema)
         validate_flow_preview_schema(preview_schema)
+        _validate_step_authority_invariants(amount_path, high_risk, steps)
 
         flow_id = uuid.uuid4()
         try:
@@ -94,6 +129,12 @@ class ApprovalFlowsService:
                 reset_on_edit=reset_on_edit,
             )
             await session.flush()
+            await self._steps_service.create_steps_for_flow_version(
+                session=session,
+                tenant_id=tenant_id,
+                flow_version_id=flow_version.id,
+                steps=steps,
+            )
             await self._repo.set_active_version_id(
                 session=session,
                 tenant_id=tenant_id,
@@ -124,6 +165,7 @@ class ApprovalFlowsService:
         currency_exchange_rates: dict,
         sla_seconds: int,
         reset_on_edit: bool,
+        steps: list[ApprovalStepInput] | None = None,
     ) -> ApprovalFlow:
         """Create new approval flow version and commit the transaction.
 
@@ -142,10 +184,12 @@ class ApprovalFlowsService:
             currency_exchange_rates: Static rate conversion map for multi-currency evaluations
             sla_seconds: Service level agreement timeout in seconds for approval decisions
             reset_on_edit: Whether to reset the flow state when the artifact is edited
+            steps: List of approval steps for the new flow version (default: empty list)
 
         Returns:
             The created ApprovalFlow object
         """
+        steps = steps or []
         if schema_validation_enabled and json_schema == {}:
             raise InvalidFlowSchemaError(
                 "json_schema must not be empty when schema_validation_enabled is true"
@@ -156,6 +200,7 @@ class ApprovalFlowsService:
             )
         validate_flow_json_schema(json_schema)
         validate_flow_preview_schema(preview_schema)
+        _validate_step_authority_invariants(amount_path, high_risk, steps)
 
         flow = await self._repo.get_flow_by_id_for_update(session, tenant_id, flow_id)
         if not flow:
@@ -186,6 +231,12 @@ class ApprovalFlowsService:
                 reset_on_edit=reset_on_edit,
             )
             await session.flush()
+            await self._steps_service.create_steps_for_flow_version(
+                session=session,
+                tenant_id=tenant_id,
+                flow_version_id=new_flow_version.id,
+                steps=steps,
+            )
             await self._repo.set_active_version_id(
                 session=session,
                 tenant_id=tenant_id,
