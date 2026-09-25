@@ -5,11 +5,14 @@
 
 import asyncio
 import sys
+import time
 from pathlib import Path
 
 import docker
+import psycopg
 import pytest
 from sqlalchemy import text
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -54,17 +57,23 @@ def docker_container():
             remove=True,
         )
 
-        # Wait for container to be healthy
-        import time
-
+        # Wait for container to be healthy by attempting a real TCP connection
+        # to the mapped host port. This avoids the false-positive from pg_isready
+        # targeting the temporary init socket on first boot.
         max_attempts = 30
         for attempt in range(max_attempts):
-            result = container.exec_run(
-                ["pg_isready", "-U", POSTGRES_USER, "-d", POSTGRES_DB]
-            )
-            if result.exit_code == 0:
-                break
-            time.sleep(0.5)
+            try:
+                with psycopg.connect(
+                    host="localhost",
+                    port=POSTGRES_PORT,
+                    user=POSTGRES_USER,
+                    password=POSTGRES_PASSWORD,
+                    dbname=POSTGRES_DB,
+                    connect_timeout=1,
+                ):
+                    break
+            except psycopg.OperationalError:
+                time.sleep(0.5)
         else:
             raise RuntimeError("PostgreSQL container did not become ready")
 
@@ -102,8 +111,19 @@ def event_loop():
 @pytest.fixture(scope="session")
 async def test_engine(test_db_config, event_loop):
     """Create a test database engine and run migrations."""
-    # Run migrations
-    run_migrations(test_db_config)
+    # Run migrations with retry/backoff for transient connection failures
+    max_retries = 10
+    retry_delay = 1
+    for attempt in range(max_retries):
+        try:
+            run_migrations(test_db_config)
+            break
+        except OperationalError:
+            if attempt < max_retries - 1:
+                await asyncio.sleep(retry_delay)
+                retry_delay = min(retry_delay * 1.5, 5)
+            else:
+                raise
 
     # Create engine
     engine = create_async_engine(
