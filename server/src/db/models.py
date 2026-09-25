@@ -142,6 +142,10 @@ class FlowVersion(Base):
     schema_validation_enabled: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=True
     )
+    amount_path: Mapped[str | None] = mapped_column(String, nullable=True)
+    currency_path: Mapped[str | None] = mapped_column(String, nullable=True)
+    high_risk: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    currency_exchange_rates: Mapped[dict] = mapped_column(JSON, nullable=False)
     sla_seconds: Mapped[int] = mapped_column(Integer, nullable=False)
     reset_on_edit: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     created_at: Mapped[datetime] = mapped_column(

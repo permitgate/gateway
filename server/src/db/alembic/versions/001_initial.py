@@ -167,6 +167,15 @@ def upgrade() -> None:
         sa.Column(
             "schema_validation_enabled", sa.Boolean(), nullable=False, default=True
         ),
+        sa.Column("amount_path", sa.String(255), nullable=True),
+        sa.Column("currency_path", sa.String(255), nullable=True),
+        sa.Column("high_risk", sa.Boolean(), nullable=False, default=False),
+        sa.Column(
+            "currency_exchange_rates",
+            JSONB(),
+            nullable=False,
+            server_default=sa.text("'{}'::jsonb"),
+        ),
         sa.Column("sla_seconds", sa.Integer(), nullable=False),
         sa.Column("reset_on_edit", sa.Boolean(), nullable=False, default=True),
         sa.Column(
@@ -186,6 +195,18 @@ def upgrade() -> None:
             "id", "flow_id", "tenant_id", name="uq_tenant_flow_version_composite"
         ),
         sa.CheckConstraint("sla_seconds > 0", name="chk_positive_sla"),
+        sa.CheckConstraint(
+            "(amount_path IS NULL AND currency_path IS NULL) OR (amount_path IS NOT NULL AND currency_path IS NOT NULL)",
+            name="chk_flow_amount_paths_bound",
+        ),
+        sa.CheckConstraint(
+            "amount_path IS NULL OR amount_path = '' OR amount_path ~ '^(/([^/~]|~[01])*)+$'",
+            name="chk_flow_amount_path_pointer",
+        ),
+        sa.CheckConstraint(
+            "currency_path IS NULL OR currency_path ~ '^(/([^/~]|~[01])*)+$'",
+            name="chk_flow_currency_path_pointer",
+        ),
         sa.PrimaryKeyConstraint("id"),
     )
 

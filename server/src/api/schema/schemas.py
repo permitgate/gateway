@@ -63,6 +63,10 @@ class ApprovalFlowUpdate(BaseModel):
     json_schema: dict
     preview_schema: dict
     schema_validation_enabled: bool
+    amount_path: str | None = None
+    currency_path: str | None = None
+    high_risk: bool = False
+    currency_exchange_rates: dict = Field(default_factory=dict)
     sla_seconds: int = Field(gt=0)
     reset_on_edit: bool
 
@@ -95,6 +99,10 @@ class ApprovalFlowVersionResponse(BaseModel):
     json_schema: dict
     preview_schema: dict
     schema_validation_enabled: bool
+    amount_path: str | None
+    currency_path: str | None
+    high_risk: bool
+    currency_exchange_rates: dict
     sla_seconds: int
     reset_on_edit: bool
     created_at: datetime

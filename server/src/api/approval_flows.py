@@ -62,6 +62,10 @@ async def create_flow(
             json_schema=flow.json_schema,
             preview_schema=flow.preview_schema,
             schema_validation_enabled=flow.schema_validation_enabled,
+            amount_path=flow.amount_path,
+            currency_path=flow.currency_path,
+            high_risk=flow.high_risk,
+            currency_exchange_rates=flow.currency_exchange_rates,
             sla_seconds=flow.sla_seconds,
             reset_on_edit=flow.reset_on_edit,
         )
@@ -142,6 +146,10 @@ async def update_flow(
             json_schema=flow.json_schema,
             preview_schema=flow.preview_schema,
             schema_validation_enabled=flow.schema_validation_enabled,
+            amount_path=flow.amount_path,
+            currency_path=flow.currency_path,
+            high_risk=flow.high_risk,
+            currency_exchange_rates=flow.currency_exchange_rates,
             sla_seconds=flow.sla_seconds,
             reset_on_edit=flow.reset_on_edit,
         )
