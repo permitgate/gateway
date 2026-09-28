@@ -14,9 +14,11 @@ from api.users import group_router, router
 from db import get_session
 from db.models import GroupMembership, ReviewerGroup, User
 from service.exceptions import (
+    ReviewerGroupBusyError,
     ReviewerGroupExistsError,
     ReviewerGroupNotFoundError,
     UserAlreadyInGroupError,
+    UserBusyError,
     UserExistsError,
     UserNotFoundError,
 )
@@ -366,6 +368,22 @@ def test_delete_user_not_found(mock_service, client, sample_tenant_id):
 
 
 @patch("api.users.service")
+def test_delete_user_busy(mock_service, client, sample_tenant_id):
+    """Test deleting a non-existent user."""
+    user_id = uuid.uuid4()
+    mock_service.delete_user = AsyncMock(side_effect=UserBusyError(user_id))
+
+    response = client.delete(f"/tenants/{sample_tenant_id}/users/{user_id}")
+
+    assert response.status_code == 409
+    data = response.json()
+    assert (
+        "participates in one of the approval flows and cannot be deleted"
+        in data["detail"]
+    )
+
+
+@patch("api.users.service")
 def test_list_multiple_users(mock_service, client, sample_tenant_id):
     """Test listing multiple users."""
     users = [
@@ -621,6 +639,22 @@ def test_delete_group_not_found(mock_service, client, sample_tenant_id):
     assert response.status_code == 404
     data = response.json()
     assert "Group not found" in data["detail"]
+
+
+@patch("api.users.service")
+def test_delete_group_busy(mock_service, client, sample_tenant_id):
+    """Test deleting a non-existent group."""
+    group_id = uuid.uuid4()
+    mock_service.delete_group = AsyncMock(side_effect=ReviewerGroupBusyError(group_id))
+
+    response = client.delete(f"/tenants/{sample_tenant_id}/groups/{group_id}")
+
+    assert response.status_code == 409
+    data = response.json()
+    assert (
+        "participates in one of the approval flows and cannot be deleted"
+        in data["detail"]
+    )
 
 
 @patch("api.users.service")

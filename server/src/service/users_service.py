@@ -13,8 +13,10 @@ from db.repo.reviewer_groups_repo import ReviewerGroupsRepository
 from db.repo.users_repo import UsersRepository
 from model import GroupMembership, ReviewerGroup, User, UserRole
 from service.exceptions import (
+    ReviewerGroupBusyError,
     ReviewerGroupExistsError,
     UserAlreadyInGroupError,
+    UserBusyError,
     UserExistsError,
     UserNotFoundError,
 )
@@ -201,11 +203,18 @@ class UsersService:
 
         Raises:
             UserNotFoundError: If the user is not found
+            UserBusyError: If the user is already a member of approval flow
         """
         deleted = await self._repo.delete_user(session, tenant_id, user_id)
         if not deleted:
             raise UserNotFoundError(user_id)
-        await session.commit()
+        try:
+            await session.commit()
+        except IntegrityError as e:
+            await session.rollback()
+            if "fk_approval_steps_target_user" in str(e):
+                raise UserBusyError(user_id)
+            raise
         return deleted
 
     async def create_group_with_users(
@@ -433,6 +442,7 @@ class UsersService:
 
         Raises:
             ReviewerGroupNotFoundError: If the group is not found
+            ReviewerGroupBusyError: If the group is already a member of approval flow
         """
         from service.exceptions import ReviewerGroupNotFoundError
 
@@ -441,5 +451,11 @@ class UsersService:
         )
         if not deleted:
             raise ReviewerGroupNotFoundError(group_id)
-        await session.commit()
+        try:
+            await session.commit()
+        except IntegrityError as e:
+            await session.rollback()
+            if "fk_approval_steps_target_group" in str(e):
+                raise ReviewerGroupBusyError(group_id)
+            raise
         return deleted
