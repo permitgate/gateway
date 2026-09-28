@@ -14,14 +14,16 @@ from model.user_role import UserRole
 class ApprovalStepInput(BaseModel):
     """Schema for approval step input during creation."""
 
-    name: str
+    name: str = Field(max_length=255)
     target_group_id: uuid.UUID | None = None
     target_user_id: uuid.UUID | None = None
     editable_paths: list[str] = Field(default_factory=list)
-    amount_limit_minor_units: int | None = Field(gt=0, default=None)
-    currency: str | None = None
+    amount_limit_minor_units: int | None = Field(
+        gt=0, le=9_223_372_036_854_775_807, default=None
+    )
+    currency: str | None = Field(default=None, pattern=r"^[A-Z]{3}$")
     required_role: UserRole | None = None
-    action_type: str | None = None
+    action_type: str | None = Field(default=None, max_length=100)
 
     @model_validator(mode="after")
     def check_exactly_one_approval_target(self) -> "ApprovalStepInput":
