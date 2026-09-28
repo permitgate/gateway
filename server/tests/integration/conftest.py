@@ -161,6 +161,7 @@ async def cleanup_database(test_session):
         await test_session.execute(
             text("UPDATE approval_flows SET active_version_id = NULL")
         )
+        await test_session.execute(text("DELETE FROM approval_steps"))
         await test_session.execute(text("DELETE FROM flow_versions"))
         await test_session.execute(text("DELETE FROM approval_flows"))
         await test_session.execute(text("DELETE FROM users"))

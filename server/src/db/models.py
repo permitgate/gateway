@@ -6,7 +6,17 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import JSON, UUID, Boolean, DateTime, ForeignKey, Integer, String, func
+from sqlalchemy import (
+    JSON,
+    UUID,
+    BigInteger,
+    Boolean,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    func,
+)
 from sqlalchemy.orm import Mapped, declarative_base, mapped_column
 
 Base = declarative_base()
@@ -148,6 +158,40 @@ class FlowVersion(Base):
     currency_exchange_rates: Mapped[dict] = mapped_column(JSON, nullable=False)
     sla_seconds: Mapped[int] = mapped_column(Integer, nullable=False)
     reset_on_edit: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class ApprovalStep(Base):
+    """ApprovalStep model mapping to approval_steps table."""
+
+    __tablename__ = "approval_steps"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    flow_version_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("flow_versions.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    step_order: Mapped[int] = mapped_column(Integer, nullable=False)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    target_group_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), nullable=True
+    )
+    target_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), nullable=True
+    )
+    editable_paths: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    amount_limit_minor_units: Mapped[int | None] = mapped_column(
+        BigInteger, nullable=True
+    )
+    currency: Mapped[str | None] = mapped_column(String, nullable=True)
+    required_role: Mapped[str | None] = mapped_column(String, nullable=True)
+    action_type: Mapped[str | None] = mapped_column(String, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

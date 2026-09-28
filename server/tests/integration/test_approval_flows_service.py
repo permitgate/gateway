@@ -11,11 +11,14 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
-from db.models import Tenant
+from db.models import Tenant, User
+from model import ApprovalStepInput
 from service.approval_flows_service import ApprovalFlowsService
+from service.approval_steps_service import ApprovalStepsService
 from service.exceptions import (
     ApprovalFlowNotFoundError,
     FlowVersionNotFoundError,
+    InvalidApprovalStepError,
 )
 
 
@@ -32,6 +35,15 @@ async def sample_tenant(test_session):
     test_session.add(tenant)
     await test_session.commit()
     return tenant
+
+
+@pytest.fixture
+async def sample_user(test_session, sample_tenant):
+    """Create a sample user."""
+    user = User(id=uuid.uuid4(), tenant_id=sample_tenant.id, email="reviewer@test.com")
+    test_session.add(user)
+    await test_session.commit()
+    return user
 
 
 @pytest.fixture
@@ -1032,3 +1044,253 @@ class TestApprovalFlowsServiceComplexSchemas:
 
         assert versions[0].json_schema == original_schema
         assert versions[1].json_schema == updated_schema
+
+
+class TestApprovalFlowsServiceSteps:
+    """Tests for creating and managing approval steps."""
+
+    async def test_create_flow_with_steps(
+        self,
+        approval_flows_service,
+        test_session,
+        sample_tenant,
+        sample_user,
+        minimal_valid_schema,
+    ):
+        """Test creating a flow with approval steps."""
+        steps = [
+            ApprovalStepInput(
+                name="Manager Review",
+                target_user_id=sample_user.id,
+                editable_paths=["/description"],
+            )
+        ]
+
+        flow = await approval_flows_service.create_flow(
+            session=test_session,
+            tenant_id=sample_tenant.id,
+            name="Flow With Steps",
+            json_schema=minimal_valid_schema,
+            preview_schema={"type": "object"},
+            schema_validation_enabled=True,
+            amount_path=None,
+            currency_path=None,
+            high_risk=False,
+            currency_exchange_rates={},
+            sla_seconds=3600,
+            reset_on_edit=True,
+            steps=steps,
+        )
+
+        assert flow.id is not None
+        assert flow.active_version_id is not None
+
+        # Verify steps were created
+        steps_service = ApprovalStepsService()
+        flow_steps = await steps_service.list_steps_for_flow_version(
+            test_session, sample_tenant.id, flow.active_version_id
+        )
+
+        assert len(flow_steps) == 1
+        assert flow_steps[0].name == "Manager Review"
+        assert flow_steps[0].target_user_id == sample_user.id
+        assert flow_steps[0].step_order == 1
+
+    async def test_step_ordering_is_sequential(
+        self,
+        approval_flows_service,
+        test_session,
+        sample_tenant,
+        sample_user,
+        minimal_valid_schema,
+    ):
+        """Test that step_order is assigned sequentially."""
+        steps = [
+            ApprovalStepInput(
+                name="Step 1",
+                target_user_id=sample_user.id,
+                editable_paths=[],
+            ),
+            ApprovalStepInput(
+                name="Step 2",
+                target_user_id=sample_user.id,
+                editable_paths=[],
+            ),
+            ApprovalStepInput(
+                name="Step 3",
+                target_user_id=sample_user.id,
+                editable_paths=[],
+            ),
+        ]
+
+        flow = await approval_flows_service.create_flow(
+            session=test_session,
+            tenant_id=sample_tenant.id,
+            name="Multi-Step Flow",
+            json_schema=minimal_valid_schema,
+            preview_schema={"type": "object"},
+            schema_validation_enabled=True,
+            amount_path=None,
+            currency_path=None,
+            high_risk=False,
+            currency_exchange_rates={},
+            sla_seconds=3600,
+            reset_on_edit=True,
+            steps=steps,
+        )
+
+        steps_service = ApprovalStepsService()
+        flow_steps = await steps_service.list_steps_for_flow_version(
+            test_session, sample_tenant.id, flow.active_version_id
+        )
+
+        assert len(flow_steps) == 3
+        assert flow_steps[0].step_order == 1
+        assert flow_steps[1].step_order == 2
+        assert flow_steps[2].step_order == 3
+
+    async def test_invalid_step_amount_without_path(
+        self,
+        approval_flows_service,
+        test_session,
+        sample_tenant,
+        sample_user,
+        minimal_valid_schema,
+    ):
+        """Test that step with amount_limit_minor_units fails when flow has no amount_path."""
+        steps = [
+            ApprovalStepInput(
+                name="Step With Amount",
+                target_user_id=sample_user.id,
+                editable_paths=[],
+                amount_limit_minor_units=1000,
+                currency="USD",
+            )
+        ]
+
+        with pytest.raises(InvalidApprovalStepError):
+            await approval_flows_service.create_flow(
+                session=test_session,
+                tenant_id=sample_tenant.id,
+                name="Invalid Flow",
+                json_schema=minimal_valid_schema,
+                preview_schema={"type": "object"},
+                schema_validation_enabled=True,
+                amount_path=None,
+                currency_path=None,
+                high_risk=False,
+                currency_exchange_rates={},
+                sla_seconds=3600,
+                reset_on_edit=True,
+                steps=steps,
+            )
+
+    async def test_high_risk_flow_requires_step_amounts(
+        self,
+        approval_flows_service,
+        test_session,
+        sample_tenant,
+        sample_user,
+        minimal_valid_schema,
+    ):
+        """Test that high_risk flow requires all steps to have amount_limit_minor_units."""
+        steps = [
+            ApprovalStepInput(
+                name="Step Without Amount",
+                target_user_id=sample_user.id,
+                editable_paths=[],
+            )
+        ]
+
+        with pytest.raises(InvalidApprovalStepError):
+            await approval_flows_service.create_flow(
+                session=test_session,
+                tenant_id=sample_tenant.id,
+                name="High Risk Flow",
+                json_schema=minimal_valid_schema,
+                preview_schema={"type": "object"},
+                schema_validation_enabled=True,
+                amount_path="/amount",
+                currency_path="/currency",
+                high_risk=True,
+                currency_exchange_rates={},
+                sla_seconds=3600,
+                reset_on_edit=True,
+                steps=steps,
+            )
+
+    async def test_update_flow_creates_steps_for_new_version(
+        self,
+        approval_flows_service,
+        test_session,
+        sample_tenant,
+        sample_user,
+        minimal_valid_schema,
+    ):
+        """Test that update_flow creates steps for the new version."""
+        initial_steps = [
+            ApprovalStepInput(
+                name="Initial Step",
+                target_user_id=sample_user.id,
+                editable_paths=[],
+            )
+        ]
+
+        flow = await approval_flows_service.create_flow(
+            session=test_session,
+            tenant_id=sample_tenant.id,
+            name="Updateable Flow",
+            json_schema=minimal_valid_schema,
+            preview_schema={"type": "object"},
+            schema_validation_enabled=True,
+            amount_path=None,
+            currency_path=None,
+            high_risk=False,
+            currency_exchange_rates={},
+            sla_seconds=3600,
+            reset_on_edit=True,
+            steps=initial_steps,
+        )
+
+        updated_schema = {
+            "type": "object",
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "properties": {"field": {"type": "string"}},
+        }
+
+        new_steps = [
+            ApprovalStepInput(
+                name="Updated Step",
+                target_user_id=sample_user.id,
+                editable_paths=["/field"],
+            )
+        ]
+
+        await approval_flows_service.update_flow(
+            session=test_session,
+            tenant_id=sample_tenant.id,
+            flow_id=flow.id,
+            json_schema=updated_schema,
+            preview_schema={"type": "object"},
+            schema_validation_enabled=True,
+            amount_path=None,
+            currency_path=None,
+            high_risk=False,
+            currency_exchange_rates={},
+            sla_seconds=3600,
+            reset_on_edit=True,
+            steps=new_steps,
+        )
+
+        # Get the new active version
+        updated_flow = await approval_flows_service.get_flow(
+            test_session, sample_tenant.id, flow.id
+        )
+
+        steps_service = ApprovalStepsService()
+        new_version_steps = await steps_service.list_steps_for_flow_version(
+            test_session, sample_tenant.id, updated_flow.active_version_id
+        )
+
+        assert len(new_version_steps) == 1
+        assert new_version_steps[0].name == "Updated Step"

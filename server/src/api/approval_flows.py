@@ -13,12 +13,15 @@ from api.schema.schemas import (
     ApprovalFlowResponse,
     ApprovalFlowUpdate,
     ApprovalFlowVersionResponse,
+    ApprovalStepResponse,
 )
 from db import get_session
 from service.approval_flows_service import ApprovalFlowsService
+from service.approval_steps_service import ApprovalStepsService
 from service.exceptions import (
     ApprovalFlowNotFoundError,
     FlowVersionNotFoundError,
+    InvalidApprovalStepError,
     InvalidFlowSchemaError,
     NoActiveVersionError,
 )
@@ -36,6 +39,7 @@ router = APIRouter(
     prefix="/tenants/{tenant_id}/approval-flows", tags=["Approval Flows"]
 )
 service = ApprovalFlowsService()
+steps_service = ApprovalStepsService()
 
 
 @router.post(
@@ -68,9 +72,12 @@ async def create_flow(
             currency_exchange_rates=flow.currency_exchange_rates,
             sla_seconds=flow.sla_seconds,
             reset_on_edit=flow.reset_on_edit,
+            steps=flow.steps,
         )
         return ApprovalFlowResponse.model_validate(created_flow, from_attributes=True)
     except InvalidFlowSchemaError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except InvalidApprovalStepError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
 
@@ -152,9 +159,12 @@ async def update_flow(
             currency_exchange_rates=flow.currency_exchange_rates,
             sla_seconds=flow.sla_seconds,
             reset_on_edit=flow.reset_on_edit,
+            steps=flow.steps,
         )
         return ApprovalFlowResponse.model_validate(updated_flow, from_attributes=True)
     except InvalidFlowSchemaError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except InvalidApprovalStepError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     except ApprovalFlowNotFoundError:
         raise HTTPException(status_code=404, detail="Approval flow not found")
@@ -209,3 +219,20 @@ async def get_flow_version(
         return ApprovalFlowVersionResponse.model_validate(version, from_attributes=True)
     except FlowVersionNotFoundError:
         raise HTTPException(status_code=404, detail="Flow version not found")
+
+
+@router.get(
+    "/versions/{version_id}/steps",
+    response_model=list[ApprovalStepResponse],
+    responses={200: {"description": "List of all steps for the flow version"}},
+)
+async def list_flow_version_steps(
+    tenant_id: uuid.UUID,
+    version_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),  # noqa: B008
+) -> list[ApprovalStepResponse]:
+    """List all approval steps for a flow version, ordered by step_order."""
+    steps = await steps_service.list_steps_for_flow_version(
+        session, tenant_id, version_id
+    )
+    return [ApprovalStepResponse.model_validate(s, from_attributes=True) for s in steps]

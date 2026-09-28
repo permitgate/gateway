@@ -16,6 +16,7 @@ from db.models import ApprovalFlow, FlowVersion
 from service.exceptions import (
     ApprovalFlowNotFoundError,
     FlowVersionNotFoundError,
+    InvalidApprovalStepError,
     NoActiveVersionError,
 )
 
@@ -85,8 +86,20 @@ def sample_flow_version(sample_tenant_id, sample_flow_id, sample_version_id):
     )
 
 
+@pytest.fixture
+def sample_approval_step():
+    """Create a sample approval step payload."""
+    return {
+        "name": "Step 1",
+        "target_user_id": str(uuid.uuid4()),
+        "editable_paths": [],
+    }
+
+
 @patch("api.approval_flows.service")
-def test_create_flow(mock_service, client, sample_approval_flow, sample_tenant_id):
+def test_create_flow(
+    mock_service, client, sample_approval_flow, sample_tenant_id, sample_approval_step
+):
     """Test creating a new approval flow."""
     mock_service.create_flow = AsyncMock(return_value=sample_approval_flow)
 
@@ -101,6 +114,7 @@ def test_create_flow(mock_service, client, sample_approval_flow, sample_tenant_i
         "currency_exchange_rates": {},
         "sla_seconds": 3600,
         "reset_on_edit": True,
+        "steps": [sample_approval_step],
     }
 
     response = client.post(f"/tenants/{sample_tenant_id}/approval-flows/", json=payload)
@@ -229,7 +243,9 @@ def test_get_flow_version_not_found(
 
 
 @patch("api.approval_flows.service")
-def test_create_flow_multiple_versions(mock_service, client, sample_tenant_id):
+def test_create_flow_multiple_versions(
+    mock_service, client, sample_tenant_id, sample_approval_step
+):
     """Test creating flows with multiple versions."""
     flow1 = ApprovalFlow(
         id=uuid.uuid4(),
@@ -259,6 +275,7 @@ def test_create_flow_multiple_versions(mock_service, client, sample_tenant_id):
         "currency_exchange_rates": {},
         "sla_seconds": 3600,
         "reset_on_edit": True,
+        "steps": [sample_approval_step],
     }
 
     response1 = client.post(
@@ -327,12 +344,13 @@ def test_list_multiple_versions(mock_service, client, sample_tenant_id, sample_f
 
 
 @patch("api.approval_flows.service")
-def test_update_flow(mock_service, client, sample_approval_flow, sample_tenant_id):
+def test_update_flow(
+    mock_service, client, sample_approval_flow, sample_tenant_id, sample_approval_step
+):
     """Test updating an approval flow."""
     mock_service.update_flow = AsyncMock(return_value=sample_approval_flow)
 
     payload = {
-        "name": "Updated Flow",
         "json_schema": {"type": "object", "properties": {"new": {"type": "string"}}},
         "preview_schema": {"type": "object"},
         "schema_validation_enabled": False,
@@ -342,6 +360,7 @@ def test_update_flow(mock_service, client, sample_approval_flow, sample_tenant_i
         "currency_exchange_rates": {},
         "sla_seconds": 7200,
         "reset_on_edit": False,
+        "steps": [sample_approval_step],
     }
 
     response = client.put(
@@ -356,13 +375,14 @@ def test_update_flow(mock_service, client, sample_approval_flow, sample_tenant_i
 
 
 @patch("api.approval_flows.service")
-def test_update_flow_not_found(mock_service, client, sample_tenant_id):
+def test_update_flow_not_found(
+    mock_service, client, sample_tenant_id, sample_approval_step
+):
     """Test updating a non-existent approval flow."""
     flow_id = uuid.uuid4()
     mock_service.update_flow = AsyncMock(side_effect=ApprovalFlowNotFoundError(flow_id))
 
     payload = {
-        "name": "Updated Flow",
         "json_schema": {"type": "object"},
         "preview_schema": {"type": "object"},
         "schema_validation_enabled": True,
@@ -372,6 +392,7 @@ def test_update_flow_not_found(mock_service, client, sample_tenant_id):
         "currency_exchange_rates": {},
         "sla_seconds": 3600,
         "reset_on_edit": True,
+        "steps": [sample_approval_step],
     }
 
     response = client.put(
@@ -384,13 +405,14 @@ def test_update_flow_not_found(mock_service, client, sample_tenant_id):
 
 
 @patch("api.approval_flows.service")
-def test_update_flow_no_active_version(mock_service, client, sample_tenant_id):
+def test_update_flow_no_active_version(
+    mock_service, client, sample_tenant_id, sample_approval_step
+):
     """Test updating a flow with no active version."""
     flow_id = uuid.uuid4()
     mock_service.update_flow = AsyncMock(side_effect=NoActiveVersionError(flow_id))
 
     payload = {
-        "name": "Updated Flow",
         "json_schema": {"type": "object"},
         "preview_schema": {"type": "object"},
         "schema_validation_enabled": True,
@@ -400,6 +422,7 @@ def test_update_flow_no_active_version(mock_service, client, sample_tenant_id):
         "currency_exchange_rates": {},
         "sla_seconds": 3600,
         "reset_on_edit": True,
+        "steps": [sample_approval_step],
     }
 
     response = client.put(
@@ -412,7 +435,9 @@ def test_update_flow_no_active_version(mock_service, client, sample_tenant_id):
 
 
 @patch("api.approval_flows.service")
-def test_update_flow_active_version_not_found(mock_service, client, sample_tenant_id):
+def test_update_flow_active_version_not_found(
+    mock_service, client, sample_tenant_id, sample_approval_step
+):
     """Test updating a flow when active version is not found."""
     flow_id = uuid.uuid4()
     version_id = uuid.uuid4()
@@ -421,7 +446,6 @@ def test_update_flow_active_version_not_found(mock_service, client, sample_tenan
     )
 
     payload = {
-        "name": "Updated Flow",
         "json_schema": {"type": "object"},
         "preview_schema": {"type": "object"},
         "schema_validation_enabled": True,
@@ -431,6 +455,7 @@ def test_update_flow_active_version_not_found(mock_service, client, sample_tenan
         "currency_exchange_rates": {},
         "sla_seconds": 3600,
         "reset_on_edit": True,
+        "steps": [sample_approval_step],
     }
 
     response = client.put(
@@ -444,7 +469,7 @@ def test_update_flow_active_version_not_found(mock_service, client, sample_tenan
 
 @patch("api.approval_flows.service")
 def test_create_flow_with_financial_fields(
-    mock_service, client, sample_approval_flow, sample_tenant_id
+    mock_service, client, sample_approval_flow, sample_tenant_id, sample_approval_step
 ):
     """Test creating a flow with financial fields."""
     mock_service.create_flow = AsyncMock(return_value=sample_approval_flow)
@@ -460,6 +485,7 @@ def test_create_flow_with_financial_fields(
         "currency_exchange_rates": {"USD": 1.0, "EUR": 0.92},
         "sla_seconds": 3600,
         "reset_on_edit": True,
+        "steps": [sample_approval_step],
     }
 
     response = client.post(f"/tenants/{sample_tenant_id}/approval-flows/", json=payload)
@@ -477,7 +503,7 @@ def test_create_flow_with_financial_fields(
 
 @patch("api.approval_flows.service")
 def test_update_flow_financial_fields(
-    mock_service, client, sample_approval_flow, sample_tenant_id
+    mock_service, client, sample_approval_flow, sample_tenant_id, sample_approval_step
 ):
     """Test updating a flow with financial fields."""
     mock_service.update_flow = AsyncMock(return_value=sample_approval_flow)
@@ -492,6 +518,7 @@ def test_update_flow_financial_fields(
         "currency_exchange_rates": {"USD": 1.0, "EUR": 0.92, "GBP": 0.80},
         "sla_seconds": 7200,
         "reset_on_edit": False,
+        "steps": [sample_approval_step],
     }
 
     response = client.put(
@@ -514,3 +541,170 @@ def test_update_flow_financial_fields(
     }
     assert call_args.kwargs["sla_seconds"] == 7200
     assert call_args.kwargs["reset_on_edit"] is False
+
+
+def test_create_flow_rejects_empty_steps(client, sample_tenant_id):
+    """Test that POST rejects empty steps array."""
+    payload = {
+        "name": "Test Flow",
+        "json_schema": {"type": "object"},
+        "preview_schema": {"type": "object"},
+        "schema_validation_enabled": True,
+        "amount_path": "/amount",
+        "currency_path": "/currency",
+        "high_risk": True,
+        "currency_exchange_rates": {},
+        "sla_seconds": 3600,
+        "reset_on_edit": True,
+        "steps": [],
+    }
+
+    response = client.post(f"/tenants/{sample_tenant_id}/approval-flows/", json=payload)
+
+    assert response.status_code == 422
+
+
+def test_create_flow_rejects_ambiguous_target(client, sample_tenant_id):
+    """Test that POST rejects steps with both target_user_id and target_group_id."""
+    payload = {
+        "name": "Test Flow",
+        "json_schema": {"type": "object"},
+        "preview_schema": {"type": "object"},
+        "schema_validation_enabled": True,
+        "amount_path": "/amount",
+        "currency_path": "/currency",
+        "high_risk": True,
+        "currency_exchange_rates": {},
+        "sla_seconds": 3600,
+        "reset_on_edit": True,
+        "steps": [
+            {
+                "name": "Step 1",
+                "target_user_id": str(uuid.uuid4()),
+                "target_group_id": str(uuid.uuid4()),
+                "editable_paths": [],
+            }
+        ],
+    }
+
+    response = client.post(f"/tenants/{sample_tenant_id}/approval-flows/", json=payload)
+
+    assert response.status_code == 422
+
+
+@patch("api.approval_flows.service")
+def test_create_flow_invalid_step_returns_400(
+    mock_service, client, sample_tenant_id, sample_approval_step
+):
+    """Test that create_flow returns 400 when InvalidApprovalStepError is raised."""
+    mock_service.create_flow = AsyncMock(
+        side_effect=InvalidApprovalStepError("Invalid step configuration")
+    )
+
+    payload = {
+        "name": "Test Flow",
+        "json_schema": {"type": "object"},
+        "preview_schema": {"type": "object"},
+        "schema_validation_enabled": True,
+        "amount_path": "/amount",
+        "currency_path": "/currency",
+        "high_risk": True,
+        "currency_exchange_rates": {},
+        "sla_seconds": 3600,
+        "reset_on_edit": True,
+        "steps": [sample_approval_step],
+    }
+
+    response = client.post(f"/tenants/{sample_tenant_id}/approval-flows/", json=payload)
+
+    assert response.status_code == 400
+    data = response.json()
+    assert "Invalid approval step" in data["detail"]
+
+
+@patch("api.approval_flows.service")
+def test_update_flow_invalid_step_returns_400(
+    mock_service, client, sample_approval_flow, sample_tenant_id, sample_approval_step
+):
+    """Test that update_flow returns 400 when InvalidApprovalStepError is raised."""
+    mock_service.update_flow = AsyncMock(
+        side_effect=InvalidApprovalStepError("Invalid step configuration")
+    )
+
+    payload = {
+        "json_schema": {"type": "object"},
+        "preview_schema": {"type": "object"},
+        "schema_validation_enabled": True,
+        "amount_path": "/amount",
+        "currency_path": "/currency",
+        "high_risk": True,
+        "currency_exchange_rates": {},
+        "sla_seconds": 3600,
+        "reset_on_edit": True,
+        "steps": [sample_approval_step],
+    }
+
+    response = client.put(
+        f"/tenants/{sample_tenant_id}/approval-flows/{sample_approval_flow.id}",
+        json=payload,
+    )
+
+    assert response.status_code == 400
+    data = response.json()
+    assert "Invalid approval step" in data["detail"]
+
+
+@patch("api.approval_flows.steps_service")
+def test_list_flow_version_steps(
+    mock_steps_service, client, sample_tenant_id, sample_version_id
+):
+    """Test listing all approval steps for a flow version."""
+    from db.models import ApprovalStep
+
+    sample_step = ApprovalStep(
+        id=uuid.uuid4(),
+        tenant_id=sample_tenant_id,
+        flow_version_id=sample_version_id,
+        step_order=1,
+        name="Step 1",
+        target_user_id=uuid.uuid4(),
+        target_group_id=None,
+        editable_paths=["/field1", "/field2"],
+        amount_limit_minor_units=None,
+        currency=None,
+        required_role=None,
+        action_type=None,
+        created_at=datetime.now(tz=UTC),
+    )
+
+    mock_steps_service.list_steps_for_flow_version = AsyncMock(
+        return_value=[sample_step]
+    )
+
+    response = client.get(
+        f"/tenants/{sample_tenant_id}/approval-flows/versions/{sample_version_id}/steps"
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 1
+    assert data[0]["id"] == str(sample_step.id)
+    assert data[0]["step_order"] == 1
+    assert data[0]["name"] == "Step 1"
+    mock_steps_service.list_steps_for_flow_version.assert_called_once()
+
+
+@patch("api.approval_flows.steps_service")
+def test_list_flow_version_steps_empty(
+    mock_steps_service, client, sample_tenant_id, sample_version_id
+):
+    """Test listing approval steps when none exist."""
+    mock_steps_service.list_steps_for_flow_version = AsyncMock(return_value=[])
+
+    response = client.get(
+        f"/tenants/{sample_tenant_id}/approval-flows/versions/{sample_version_id}/steps"
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 0

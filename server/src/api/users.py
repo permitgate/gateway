@@ -19,9 +19,11 @@ from api.schema.schemas import (
 )
 from db import get_session
 from service.exceptions import (
+    ReviewerGroupBusyError,
     ReviewerGroupExistsError,
     ReviewerGroupNotFoundError,
     UserAlreadyInGroupError,
+    UserBusyError,
     UserExistsError,
     UserNotFoundError,
 )
@@ -163,6 +165,8 @@ async def delete_user(
         await service.delete_user(session, tenant_id, user_id)
     except UserNotFoundError:
         raise HTTPException(status_code=404, detail="User not found")
+    except UserBusyError as e:
+        raise HTTPException(status_code=409, detail=str(e))
 
 
 # Group management endpoints
@@ -266,6 +270,8 @@ async def delete_group(
         await service.delete_group(session, tenant_id, group_id)
     except ReviewerGroupNotFoundError:
         raise HTTPException(status_code=404, detail="Group not found")
+    except ReviewerGroupBusyError as e:
+        raise HTTPException(status_code=409, detail=str(e))
 
 
 @group_router.post(
